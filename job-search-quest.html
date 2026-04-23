@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Job Search Quest</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{--bg:#1a0f05;--p:#f5e9c8;--pd:#e8d5a0;--ink:#2a1a0a;--il:#5a3a1a;--gold:#c9a84c;--gl:#f0d080;--gd:#8a6820;--red:#8b1a1a;--green:#1a5c2a;--blue:#1a3a6c;--purple:#3a1a6c}
+body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100vh;font-family:'Crimson Text',Georgia,serif;color:var(--ink);padding:12px;display:flex;flex-direction:column;align-items:center}
+.title{text-align:center;margin-bottom:14px}
+.title h1{font-family:'Cinzel Decorative',serif;font-size:clamp(1.1rem,4vw,1.8rem);color:var(--gl);text-shadow:0 0 20px rgba(201,168,76,.5),2px 2px 4px #000;letter-spacing:2px}
+.title .sub{font-family:'Cinzel',serif;color:var(--gold);font-size:10px;letter-spacing:4px;margin-top:3px;opacity:.8}
+.game{width:100%;max-width:940px;display:flex;flex-direction:column;gap:12px}
+.card{background:var(--p);border:2px solid var(--gd);border-radius:4px;padding:14px;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+.ct{font-family:'Cinzel',serif;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--gd);border-bottom:1px solid var(--gd);padding-bottom:6px;margin-bottom:10px;font-weight:700}
+/* Hero */
+.hero-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.av{width:72px;height:72px;border-radius:50%;border:3px solid var(--gold);background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0;box-shadow:0 0 15px rgba(201,168,76,.4);position:relative}
+.av-pet{position:absolute;bottom:-4px;right:-4px;font-size:16px;background:var(--bg);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border:2px solid var(--gold)}
+.hi{flex:1;min-width:160px}
+.hn{font-weight:700;font-size:15px;color:var(--ink);font-family:'Cinzel',serif}
+.hc{font-style:italic;color:var(--il);font-size:12px;margin-bottom:2px}
+.hr{font-size:10px;color:var(--gd);letter-spacing:2px;margin-bottom:5px;font-family:'Cinzel',serif}
+.xl{display:flex;justify-content:space-between;font-size:10px;color:var(--il);margin-bottom:3px}
+.bb{height:11px;background:var(--pd);border:1px solid var(--gd);border-radius:2px;overflow:hidden}
+.bf{height:100%;border-radius:1px;transition:width .6s ease;background:linear-gradient(90deg,var(--gd),var(--gold))}
+.lb{width:60px;height:60px;border-radius:50%;border:3px solid var(--gold);background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 0 18px rgba(201,168,76,.4);flex-shrink:0}
+.lb .ll{font-size:8px;color:var(--gold);letter-spacing:2px;font-family:'Cinzel',serif}
+.lb .ln{font-size:24px;color:var(--gl);font-weight:700;line-height:1;font-family:'Cinzel',serif}
+.sr{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.sb{background:var(--bg);color:var(--gl);border:1px solid var(--gd);padding:5px 12px;border-radius:2px;font-size:10px;letter-spacing:1px;text-align:center;min-width:64px;font-family:'Cinzel',serif;cursor:default}
+.sb span{display:block;font-size:18px;font-weight:700;line-height:1.2}
+.sb.gold-badge{border-color:var(--gold);background:#1a1200;cursor:default}
+.sb.gold-badge span{color:var(--gl)}
+/* Equipped items strip */
+.equipped-strip{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.eq-item{display:flex;align-items:center;gap:5px;padding:4px 9px;background:rgba(42,26,10,.12);border:1px solid rgba(138,104,32,.4);border-radius:12px;font-size:11px;color:var(--il)}
+.eq-item .ei{font-size:14px}
+.eq-item .en{font-size:10px;font-family:'Cinzel',serif;color:var(--gd)}
+/* Lore banner */
+.lore-banner{background:linear-gradient(135deg,#0f0a03,#1a0f05);border:1px solid var(--gd);border-radius:4px;padding:12px 16px;font-style:italic;color:var(--gold);font-size:12px;line-height:1.6;text-align:center}
+/* Pipeline */
+.pipeline{display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:8px;margin-bottom:4px}
+.pipe-col{background:rgba(42,26,10,.06);border:1px solid rgba(138,104,32,.3);border-radius:4px;padding:8px;text-align:center}
+.pipe-count{font-size:22px;font-weight:700;font-family:'Cinzel',serif;color:var(--ink);line-height:1}
+.pipe-label{font-size:9px;color:var(--il);letter-spacing:1px;font-family:'Cinzel',serif;text-transform:uppercase;margin-top:3px}
+.pipe-dot{width:8px;height:8px;border-radius:50%;margin:3px auto 0}
+/* Goals */
+.goals-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.goal-item{flex:1 1 130px;background:rgba(42,26,10,.06);border:1px solid rgba(138,104,32,.3);border-radius:3px;padding:8px 10px}
+.goal-label{font-size:9px;color:var(--gd);letter-spacing:2px;font-family:'Cinzel',serif;margin-bottom:4px}
+.goal-bar-bg{height:8px;background:var(--pd);border:1px solid var(--gd);border-radius:2px;overflow:hidden;margin-bottom:3px}
+.goal-bar-fill{height:100%;border-radius:1px;transition:width .4s ease}
+.goal-nums{font-size:10px;color:var(--il);display:flex;justify-content:space-between}
+/* Two col */
+.tc{display:flex;gap:12px;flex-wrap:wrap}
+.tc .card{flex:1 1 280px}
+/* Quest list */
+.ql{display:flex;flex-direction:column;gap:5px}
+.qi{display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(42,26,10,.06);border:1px solid rgba(138,104,32,.3);border-radius:2px;cursor:pointer;text-align:left;width:100%;transition:all .15s;font-family:'Crimson Text',Georgia,serif;-webkit-appearance:none}
+.qi:hover,.qi:active{background:rgba(201,168,76,.12);border-color:var(--gold)}
+.qn{font-size:13px;font-weight:600;color:var(--ink)}
+.qd{font-size:10px;color:var(--il);font-style:italic}
+.qx{text-align:right;font-size:10px;color:var(--gd);font-weight:700;flex-shrink:0;font-family:'Cinzel',serif}
+.qx .big{font-size:13px;display:block}
+.qx .dmg{color:var(--red);font-size:9px}
+.qx .gold-earn{color:var(--gold);font-size:9px}
+/* Chronicle */
+.wd{display:flex;gap:4px;margin-bottom:12px}
+.dd{flex:1;text-align:center}
+.dot{width:26px;height:26px;border-radius:50%;margin:0 auto 3px;border:2px solid var(--gd);display:flex;align-items:center;justify-content:center;font-size:10px;background:rgba(42,26,10,.08);transition:all .3s}
+.dot.on{background:var(--gold);color:var(--bg);box-shadow:0 0 8px rgba(201,168,76,.5)}
+.dlbl{font-size:8px;color:var(--il);letter-spacing:1px;font-family:'Cinzel',serif}
+.divl{border:none;border-top:1px solid rgba(138,104,32,.4);margin:8px 0}
+.le{max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:3px}
+.lentry{font-size:11px;padding:4px 8px;border-left:3px solid var(--gold);background:rgba(42,26,10,.05);color:var(--il);line-height:1.4}
+.lt{font-size:9px;color:var(--gd);letter-spacing:1px;font-family:'Cinzel',serif}
+/* Store */
+.store-tabs{display:flex;gap:0;border-bottom:2px solid var(--gd);margin-bottom:14px;flex-wrap:wrap}
+.stab{padding:7px 14px;font-family:'Cinzel',serif;font-size:10px;letter-spacing:2px;color:var(--il);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .2s;white-space:nowrap}
+.stab.on{color:var(--gd);border-bottom-color:var(--gd);background:rgba(138,104,32,.08)}
+.store-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.store-card{background:rgba(42,26,10,.06);border:2px solid rgba(138,104,32,.3);border-radius:6px;padding:12px;text-align:center;transition:all .2s;position:relative}
+.store-card:hover{border-color:var(--gold);background:rgba(201,168,76,.08);transform:translateY(-2px)}
+.store-card.owned{border-color:#2a6a2a;background:rgba(42,106,42,.08)}
+.store-card.locked{opacity:.5;filter:grayscale(.5)}
+.sc-icon{font-size:36px;margin-bottom:6px;display:block}
+.sc-name{font-family:'Cinzel',serif;font-size:12px;font-weight:700;color:var(--ink);margin-bottom:3px}
+.sc-desc{font-size:10px;color:var(--il);font-style:italic;margin-bottom:8px;line-height:1.4}
+.sc-effect{font-size:10px;color:var(--green);font-family:'Cinzel',serif;margin-bottom:6px;font-weight:600}
+.sc-price{font-family:'Cinzel',serif;font-size:13px;font-weight:700;color:var(--gold)}
+.sc-price .coin{font-size:14px}
+.sc-owned{font-size:10px;color:#4a8a4a;font-family:'Cinzel',serif;letter-spacing:1px}
+.sc-req{font-size:9px;color:#cc8800;font-family:'Cinzel',serif}
+.sc-equipped{position:absolute;top:6px;right:6px;font-size:10px;background:var(--green);color:#aaffaa;padding:2px 6px;border-radius:8px;font-family:'Cinzel',serif}
+/* Gold rain animation */
+@keyframes goldFly{0%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(-60px) scale(1.5);opacity:0}}
+.gold-fly{position:fixed;pointer-events:none;font-size:18px;z-index:9999;animation:goldFly .8s ease-out forwards}
+/* Search bar */
+.search-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.search-input{flex:1;min-width:160px;padding:7px 10px;font-family:'Crimson Text',Georgia,serif;border:1px solid var(--gd);border-radius:2px;background:#fffbf0;color:var(--ink);font-size:13px;outline:none}
+.search-input:focus{border-color:var(--gold)}
+.filter-select{padding:7px 10px;font-family:'Cinzel',serif;border:1px solid var(--gd);border-radius:2px;background:#fffbf0;color:var(--ink);font-size:11px;outline:none;cursor:pointer}
+/* Arena */
+.ah{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.cb{border:2px solid #6b1a1a;border-radius:4px;overflow:hidden;margin-bottom:12px}
+.ch{background:#1e0808;padding:10px 14px;cursor:pointer;user-select:none}
+.chr{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap}
+.cn{color:#ffaaaa;font-weight:700;font-size:14px;font-family:'Cinzel',serif}
+.csub{font-size:10px;color:#999;margin-bottom:4px;font-family:'Cinzel',serif;letter-spacing:1px}
+.clink{font-size:10px;color:var(--gold);text-decoration:none;display:inline-block;margin-bottom:2px}
+.clink:hover{text-decoration:underline}
+.hpbg{height:8px;background:#d5c090;border:1px solid var(--gd);border-radius:2px;overflow:hidden}
+.hpfill{height:100%;transition:width .5s ease}
+.hprbg{height:6px;background:#d5c090;border:1px solid var(--gd);border-radius:2px;overflow:hidden}
+.co-body{display:block}
+.co-body.collapsed{display:none}
+.rs{padding:10px 14px;background:rgba(42,26,10,.04)}
+.rlbl{font-size:9px;color:var(--gd);letter-spacing:2px;margin-bottom:6px;font-family:'Cinzel',serif}
+.rc{margin-bottom:8px;border:1px solid rgba(139,26,26,.25);border-radius:3px;overflow:hidden}
+.rh{display:flex;align-items:flex-start;gap:10px;padding:8px 10px}
+.rname{font-size:12px;font-weight:600;color:var(--red);font-family:'Cinzel',serif}
+.rloc{font-size:10px;color:var(--il);font-style:italic}
+.rsub{font-size:9px;color:var(--il);margin-bottom:3px;font-family:'Cinzel',serif}
+.rdesc{font-size:11px;color:var(--il);line-height:1.5;padding:8px 10px;max-height:160px;overflow-y:auto;border-top:1px solid rgba(138,104,32,.2);display:none}
+.rdesc.open{display:block}
+.status-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:9px;font-family:'Cinzel',serif;letter-spacing:1px;font-weight:700;margin-left:6px;vertical-align:middle}
+.st-active{background:rgba(26,60,108,.2);color:#6699ff;border:1px solid rgba(26,60,108,.4)}
+.st-applied{background:rgba(138,104,32,.2);color:var(--gd);border:1px solid rgba(138,104,32,.4)}
+.st-interviewing{background:rgba(90,26,26,.2);color:#ff9966;border:1px solid rgba(139,70,26,.4)}
+.st-offer{background:rgba(26,90,42,.2);color:#66cc77;border:1px solid rgba(26,90,42,.4)}
+.st-rejected{background:rgba(60,60,60,.2);color:#999;border:1px solid rgba(60,60,60,.4)}
+.st-withdrawn{background:rgba(60,60,60,.15);color:#888;border:1px solid rgba(60,60,60,.3)}
+.st-closed{background:rgba(60,60,60,.15);color:#888;border:1px solid rgba(60,60,60,.3)}
+/* NPC */
+.npc-section{padding:8px 14px 10px;background:rgba(42,26,10,.03);border-top:1px solid rgba(138,104,32,.2)}
+.npc-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.npc-chip{display:flex;align-items:center;gap:6px;padding:5px 10px;background:rgba(42,26,10,.08);border:1px solid rgba(138,104,32,.3);border-radius:16px;font-size:11px;color:var(--ink);cursor:pointer;transition:all .15s}
+.npc-chip:hover{background:rgba(201,168,76,.15);border-color:var(--gold)}
+.npc-chip.warm{border-color:#c97a2a;background:rgba(201,122,42,.1)}
+.npc-chip.hot{border-color:#cc4444;background:rgba(204,68,68,.1)}
+.nc-name{font-weight:600;font-family:'Cinzel',serif;font-size:11px}
+.nc-title{font-size:10px;color:var(--il);font-style:italic}
+/* Reminders */
+.reminder-item{display:flex;align-items:center;gap:10px;padding:7px 10px;background:rgba(42,26,10,.06);border:1px solid rgba(138,104,32,.3);border-radius:3px;margin-bottom:5px}
+.reminder-item.overdue{border-color:var(--red);background:rgba(139,26,26,.08)}
+.rem-date{font-size:10px;font-family:'Cinzel',serif;color:var(--gd);flex-shrink:0;min-width:55px}
+.rem-date.overdue{color:var(--red)}
+/* Achievements */
+.ag{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:7px}
+.ai{aspect-ratio:1;border:2px solid var(--gd);border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:20px;padding:5px;text-align:center;background:rgba(42,26,10,.08);opacity:.28;filter:grayscale(1);transition:all .4s}
+.ai.on{background:rgba(201,168,76,.15);opacity:1;filter:none;box-shadow:0 0 10px rgba(201,168,76,.25)}
+.albl{font-size:8px;color:var(--il);margin-top:2px;line-height:1.2;font-family:'Cinzel',serif}
+/* Buttons */
+.btn{background:var(--bg);color:var(--gl);border:1px solid var(--gold);padding:8px 14px;border-radius:2px;font-family:'Cinzel',Georgia,serif;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:1px;transition:opacity .15s;white-space:nowrap}
+.btn:hover,.btn:active{opacity:.75}
+.bsm{padding:5px 10px;font-size:11px}
+.bgh{background:transparent;color:var(--gd);border:1px solid var(--gd)}
+.bred{background:#3a0808;color:#ffaaaa;border-color:#6b1a1a}
+.bgold{background:linear-gradient(135deg,#3a2800,#1a1200);color:var(--gl);border-color:var(--gold)}
+/* Modal */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;z-index:500;padding:16px;opacity:0;pointer-events:none;transition:opacity .2s}
+.mo.open{opacity:1;pointer-events:all}
+.mb{background:var(--p);border:3px solid var(--gold);border-radius:6px;padding:20px;max-width:540px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.8);transform:translateY(20px);transition:transform .2s}
+.mo.open .mb{transform:translateY(0)}
+.ti{width:100%;padding:8px 10px;font-family:'Crimson Text',Georgia,serif;border:1px solid var(--gd);border-radius:2px;background:#fffbf0;color:var(--ink);font-size:14px;outline:none;margin-bottom:8px}
+.ti:focus{border-color:var(--gold)}
+.ta{width:100%;padding:8px 10px;font-family:'Crimson Text',Georgia,serif;border:1px solid var(--gd);border-radius:2px;background:#fffbf0;color:var(--ink);font-size:13px;outline:none;margin-bottom:8px;min-height:70px;resize:vertical;line-height:1.5}
+.ta:focus{border-color:var(--gold)}
+.sel-input{width:100%;padding:8px 10px;font-family:'Cinzel',serif;border:1px solid var(--gd);border-radius:2px;background:#fffbf0;color:var(--ink);font-size:12px;outline:none;margin-bottom:8px;cursor:pointer}
+.ilbl{font-size:11px;color:var(--gd);letter-spacing:1px;margin-bottom:3px;font-family:'Cinzel',serif;text-transform:uppercase;display:block}
+.mf{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+.sm{font-size:10px;color:var(--gd);letter-spacing:2px;margin-bottom:6px;font-family:'Cinzel',serif;text-transform:uppercase}
+.note{font-size:11px;color:var(--il);font-style:italic;margin-bottom:12px;line-height:1.5}
+.rsi{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:rgba(42,26,10,.06);border:1px solid rgba(138,104,32,.3);border-radius:2px;cursor:pointer;margin-bottom:6px;transition:all .15s}
+.rsi:hover,.rsi.sel{background:rgba(201,168,76,.15);border-color:var(--gold)}
+.rsn{font-size:13px;font-weight:600;color:var(--ink);font-family:'Cinzel',serif}
+.rsc{font-size:11px;color:var(--il)}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--gd);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:5px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.tinfo{margin-bottom:12px;padding:7px 10px;background:rgba(139,26,26,.08);border:1px solid rgba(139,26,26,.3);border-radius:3px}
+.tin{font-size:12px;color:var(--red);font-weight:600;font-family:'Cinzel',serif}
+.tic{font-size:10px;color:var(--il)}
+.two{display:flex;gap:8px}
+.two>div{flex:1}
+.npc-card{padding:10px 12px;background:rgba(42,26,10,.06);border:1px solid rgba(138,104,32,.3);border-radius:3px;margin-bottom:8px;cursor:pointer;transition:all .15s}
+.npc-card:hover,.npc-card.sel{background:rgba(201,168,76,.15);border-color:var(--gold)}
+.npc-name{font-size:13px;font-weight:700;color:var(--ink);font-family:'Cinzel',serif}
+.npc-meta{font-size:11px;color:var(--il);margin-top:2px}
+.npc-view-row{display:flex;align-items:flex-start;gap:8px;margin-bottom:7px;font-size:13px}
+.npc-view-row a{color:var(--gd);text-decoration:none}
+.npc-view-row a:hover{text-decoration:underline}
+.nvl{font-size:10px;color:var(--gd);font-family:'Cinzel',serif;letter-spacing:1px;min-width:80px;flex-shrink:0;margin-top:2px}
+.alog{max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;margin-top:6px}
+.alog-entry{font-size:11px;padding:5px 8px;border-left:3px solid var(--gold);background:rgba(42,26,10,.05);color:var(--il);line-height:1.4}
+.alog-entry .at{font-size:9px;color:var(--gd);font-family:'Cinzel',serif;display:block;margin-bottom:2px}
+.alog-entry .anote{font-style:italic;color:var(--il);margin-top:2px;font-size:10px;border-top:1px solid rgba(138,104,32,.2);padding-top:2px}
+.file-zone{border:2px dashed var(--gd);border-radius:4px;padding:14px;text-align:center;cursor:pointer;transition:all .2s;background:rgba(42,26,10,.04);margin-bottom:8px}
+.file-zone:hover{border-color:var(--gold);background:rgba(201,168,76,.08)}
+.file-zone input{display:none}
+.fz-label{font-size:12px;color:var(--il);font-family:'Cinzel',serif}
+.fz-sub{font-size:10px;color:var(--gd);margin-top:3px}
+.file-preview{display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(42,26,10,.06);border:1px solid rgba(138,104,32,.3);border-radius:3px;margin-bottom:8px}
+.fp-name{font-size:12px;color:var(--ink);flex:1;word-break:break-all}
+.fp-remove{font-size:16px;cursor:pointer;color:var(--red);flex-shrink:0}
+.prev-file{display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(42,26,10,.06);border:1px solid rgba(138,104,32,.3);border-radius:3px;margin-bottom:5px;cursor:pointer;transition:all .15s}
+.prev-file:hover,.prev-file.sel{background:rgba(201,168,76,.15);border-color:var(--gold)}
+.rel-strength{display:flex;gap:4px;margin-top:4px}
+.rs-dot{width:10px;height:10px;border-radius:50%;border:1px solid var(--gd);background:transparent;cursor:pointer;transition:all .2s}
+.rs-dot.filled{background:var(--gold)}
+.salary-tag{font-size:10px;color:var(--green);font-family:'Cinzel',serif}
+.deadline-tag{font-size:10px;color:#cc6600;font-family:'Cinzel',serif}
+.remind-flag{font-size:10px;color:#cc8800;font-family:'Cinzel',serif}
+.remind-flag.overdue{color:var(--red)}
+.export-section{margin-top:8px;padding:10px;background:rgba(42,26,10,.06);border:1px solid rgba(138,104,32,.3);border-radius:3px;font-size:11px;color:var(--il);white-space:pre-wrap;max-height:200px;overflow-y:auto;font-family:monospace}
+#toast{position:fixed;top:14px;left:50%;transform:translateX(-50%) translateY(-90px);background:var(--bg);border:2px solid var(--gold);color:var(--gl);padding:10px 22px;border-radius:3px;z-index:999;transition:transform .4s ease;font-size:13px;font-weight:600;letter-spacing:1px;text-align:center;max-width:90vw;box-shadow:0 4px 20px rgba(0,0,0,.7);pointer-events:none;font-family:'Cinzel',serif}
+#toast.show{transform:translateX(-50%) translateY(0)}
+.empty{text-align:center;padding:24px 0;color:var(--il);font-style:italic;font-size:13px}
+/* Purchase modal */
+.purchase-big{text-align:center;padding:16px 0}
+.purchase-big .icon{font-size:64px;display:block;margin-bottom:10px}
+.purchase-big .pname{font-family:'Cinzel Decorative',serif;font-size:18px;color:var(--ink);margin-bottom:6px}
+.purchase-big .pdesc{font-size:13px;color:var(--il);font-style:italic;margin-bottom:8px;line-height:1.5}
+.purchase-big .peffect{font-size:12px;color:var(--green);font-family:'Cinzel',serif;margin-bottom:12px;font-weight:600}
+.purchase-big .pprice{font-size:22px;color:var(--gold);font-family:'Cinzel Decorative',serif}
+</style>
+</head>
+<body>
+<div id="toast"></div>
+<div class="title">
+  <h1>⚔ Job Search Quest ⚔</h1>
+  <div class="sub">THE CHRONICLE OF EMPLOYMENT</div>
+</div>
+
+<div class="game">
+  <!-- Lore Banner -->
+  <div class="lore-banner" id="loreBanner">
+    "The Kingdom of Employment lies beyond the fog. Every application is an arrow loosed. Every interview a battle joined. Every offer — a fortress taken. Spend your gold wisely, hero. The right sword wins the right war."
+  </div>
+
+  <!-- Hero -->
+  <div class="card">
+    <div class="ct">⚜ Hero Status</div>
+    <div class="hero-row">
+      <div class="av" id="hAv">🧙<div class="av-pet" id="heroPet" style="display:none"></div></div>
+      <div class="hi">
+        <div class="hn">Jim Christiano</div>
+        <div class="hc" id="heroTitle">Regional Sales Director</div>
+        <div class="hr" id="hRank">RANK: NOVICE SEEKER</div>
+        <div class="xl"><span>⭐ EXPERIENCE</span><span id="xpLbl">0 / 100 XP</span></div>
+        <div class="bb"><div class="bf" id="xpBar" style="width:0%"></div></div>
+      </div>
+      <div class="lb"><div class="ll">LEVEL</div><div class="ln" id="lvl">1</div></div>
+    </div>
+    <div class="sr">
+      <div class="sb"><span id="sTXP">0</span>Total XP</div>
+      <div class="sb"><span id="sTod">0</span>Today</div>
+      <div class="sb"><span id="sQ">0</span>Quests</div>
+      <div class="sb"><span id="sStr">0</span>🔥 Streak</div>
+      <div class="sb gold-badge" title="Gold Coins"><span id="sGold">0</span>💰 Gold</div>
+    </div>
+    <div class="equipped-strip" id="equippedStrip"></div>
+  </div>
+
+  <!-- Pipeline -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <div class="ct" style="margin:0;border:none;padding:0">📊 Pipeline</div>
+      <button class="btn bsm bgh" onclick="openModal('editGoals')">🎯 Goals</button>
+    </div>
+    <div class="pipeline" id="pipeline"></div>
+    <div class="goals-row" id="goalsRow"></div>
+  </div>
+
+  <!-- Reminders -->
+  <div class="card" id="remCard" style="display:none">
+    <div class="ct">⏰ Follow-Up Reminders</div>
+    <div id="remList"></div>
+  </div>
+
+  <!-- Quest Log + Chronicle -->
+  <div class="tc">
+    <div class="card">
+      <div class="ct">📜 Quest Log — Tap to Record</div>
+      <div class="ql" id="questList"></div>
+    </div>
+    <div class="card">
+      <div class="ct">📖 Chronicle</div>
+      <div class="sm">Weekly Activity</div>
+      <div class="wd" id="wDots"></div>
+      <div class="divl"></div>
+      <div class="sm">Activity Log</div>
+      <div class="le" id="logEl"><div class="lentry"><span class="lt">START </span>Your quest begins.</div></div>
+    </div>
+  </div>
+
+  <!-- The Store -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:8px">
+      <div class="ct" style="margin:0;border:none;padding:0">🏪 The Adventurer's Market</div>
+      <div style="font-family:'Cinzel',serif;font-size:13px;color:var(--gold)">💰 <span id="storeGold">0</span> gold</div>
+    </div>
+    <p class="note" style="margin-bottom:10px">Spend your hard-earned gold on equipment that makes you a more formidable candidate. Each item has real effects on your quest.</p>
+    <div class="store-tabs" id="storeTabs"></div>
+    <div class="store-grid" id="storeGrid"></div>
+  </div>
+
+  <!-- Boss Arena -->
+  <div class="card">
+    <div class="ah">
+      <div class="ct" style="margin:0;border:none;padding:0">🏰 Boss Arena</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn bsm bgh" onclick="openModal('exportData')">📤 Export / Import</button>
+        <button class="btn bsm" onclick="openModal('addCompany')">+ Add Company</button>
+      </div>
+    </div>
+    <div class="search-bar">
+      <input class="search-input" id="searchInput" placeholder="🔍 Search…" oninput="renderArena()">
+      <select class="filter-select" id="filterStatus" onchange="renderArena()">
+        <option value="">All Statuses</option>
+        <option value="active">Active</option><option value="applied">Applied</option>
+        <option value="interviewing">Interviewing</option><option value="offer">Offer</option>
+        <option value="rejected">Rejected</option><option value="withdrawn">Withdrawn</option>
+        <option value="closed">Closed</option>
+      </select>
+    </div>
+    <div id="arena"><div class="empty">No targets yet.</div></div>
+  </div>
+
+  <!-- Achievements -->
+  <div class="card">
+    <div class="ct">🏆 Achievements & Honors</div>
+    <div class="ag" id="achGrid"></div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="mo" id="mOverlay" onclick="mOutside(event)">
+  <div class="mb" id="mBox"></div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+// STORE CATALOG
+// ══════════════════════════════════════════════════════════════════
+const STORE_ITEMS = [
+  // WEAPONS — boost damage dealt to bosses
+  {id:'sword_iron',   cat:'weapons',  icon:'⚔️',  name:'Iron Sword',         price:50,   req:1,  effect:'+10% damage to all bosses',        effectKey:'dmgMult',  effectVal:.10, desc:'A sturdy blade for the aspiring candidate. Gets the job done.',         lore:'Every hero starts somewhere.'},
+  {id:'sword_steel',  cat:'weapons',  icon:'🗡️',  name:'Steel Longsword',    price:150,  req:3,  effect:'+20% damage to all bosses',        effectKey:'dmgMult',  effectVal:.20, desc:'Forged by a blacksmith who once led a Fortune 500 sales team.',         lore:'The right words cut deep.'},
+  {id:'sword_silver', cat:'weapons',  icon:'🌙',  name:'Silver Blade',       price:350,  req:5,  effect:'+35% damage to all bosses',        effectKey:'dmgMult',  effectVal:.35, desc:'Enchanted silver. Interviewers find it oddly hard to say no.',           lore:'Confidence sharpened to a point.'},
+  {id:'sword_gold',   cat:'weapons',  icon:'👑',  name:'Champion\'s Edge',   price:800,  req:10, effect:'+50% damage + gold bonus on kills',effectKey:'dmgMult',  effectVal:.50, desc:'The blade of legends. Rumors say it was forged from an actual offer letter.',lore:'Only champions wield this.'},
+  {id:'bow',          cat:'weapons',  icon:'🏹',  name:'Recruiter\'s Bow',   price:200,  req:4,  effect:'+2 gold per LinkedIn action',      effectKey:'linkedinGold',effectVal:2, desc:'Long-range networking. Strike before they even post the job.',          lore:'The best opportunities come to those who reach first.'},
+  {id:'staff',        cat:'weapons',  icon:'🪄',  name:'Negotiator\'s Staff',price:500,  req:8,  effect:'+50% gold from negotiations',      effectKey:'negotiateGold',effectVal:.50, desc:'Imbued with salary magic. Raises the floor on every offer.',      lore:'The art of the ask.'},
+
+  // ARMOR — boost XP gains
+  {id:'armor_leather',cat:'armor',    icon:'🛡️',  name:'Leather Vest',       price:60,   req:1,  effect:'+10% XP from all activities',      effectKey:'xpMult',   effectVal:.10, desc:'Light protection. Keeps you moving and motivated.',                    lore:'Small gains compound.'},
+  {id:'armor_chain',  cat:'armor',    icon:'⛓️',  name:'Chainmail',          price:200,  req:4,  effect:'+20% XP from all activities',      effectKey:'xpMult',   effectVal:.20, desc:'Heavier but resilient. Absorbs rejection like a pro.',                 lore:'Persistence is armor.'},
+  {id:'armor_plate',  cat:'armor',    icon:'🦺',  name:'Plate Armor',        price:450,  req:7,  effect:'+35% XP from all activities',      effectKey:'xpMult',   effectVal:.35, desc:'Full coverage. Nothing slows you down.',                               lore:'The fully prepared candidate.'},
+  {id:'cloak',        cat:'armor',    icon:'🧥',  name:'Cloak of Resilience',price:300,  req:5,  effect:'+30 gold per rejection (bounces back!)',effectKey:'rejectionGold',effectVal:30, desc:'Every rejection makes you stronger and richer. Adversity = currency.',lore:'What doesn\'t kill you pays you.'},
+
+  // MAGIC — special abilities
+  {id:'potion_xp',    cat:'magic',    icon:'🧪',  name:'XP Potion',          price:80,   req:1,  effect:'+200 XP instantly',                effectKey:'xpBoost',  effectVal:200, desc:'Drink before a big interview week for a surge of momentum.',          lore:'Bottled ambition.', consumable:true},
+  {id:'potion_gold',  cat:'magic',    icon:'⚗️',  name:'Gold Elixir',        price:100,  req:2,  effect:'+150 gold instantly',               effectKey:'goldBoost',effectVal:150, desc:'Transmute your hustle into immediate reward.',                         lore:'Alchemy for the modern job seeker.', consumable:true},
+  {id:'scroll_apply', cat:'magic',    icon:'📜',  name:'Scroll of Mass Apply',price:120, req:2,  effect:'+3 to weekly application goal progress',effectKey:'applyBoost',effectVal:3, desc:'Enchanted parchment that counts as 3 applications toward your goal.',  lore:'The ancient art of spray and pray — enhanced.',consumable:true},
+  {id:'crystal_ball', cat:'magic',    icon:'🔮',  name:'Crystal Ball',       price:400,  req:6,  effect:'Reveals salary data: +25% gold from salary negotiation',effectKey:'salaryReveal',effectVal:.25, desc:'Shows you exactly what they\'re willing to pay.',lore:'Knowledge is power. Power is salary.'},
+  {id:'map',          cat:'magic',    icon:'🗺️',  name:'Map of Opportunity', price:250,  req:4,  effect:'+5 gold per company researched',    effectKey:'researchGold',effectVal:5, desc:'Illuminates hidden opportunities. Every company hides a secret path.',  lore:'Fortune favors the prepared.'},
+  {id:'tome',         cat:'magic',    icon:'📚',  name:'Tome of Interviews', price:350,  req:5,  effect:'+25% XP from interview activities', effectKey:'interviewXP', effectVal:.25,desc:'Contains every STAR story ever told. Study it.',                     lore:'The accumulated wisdom of 10,000 interviews.'},
+
+  // PETS — companions with passive bonuses
+  {id:'pet_cat',      cat:'pets',     icon:'🐱',  name:'Lucky Cat',          price:100,  req:1,  effect:'+5 gold per activity logged',        effectKey:'petGold',  effectVal:5,   desc:'Sits on your desk. Judges your cover letters. Brings fortune.',       lore:'Never underestimate a cat\'s network.', pet:true},
+  {id:'pet_raven',    cat:'pets',     icon:'🐦‍⬛', name:'Messenger Raven',   price:250,  req:4,  effect:'+10 gold per networking event',     effectKey:'ravenGold', effectVal:10, desc:'Delivers your name to people who need to hear it.',                   lore:'The original LinkedIn.', pet:true},
+  {id:'pet_dragon',   cat:'pets',     icon:'🐉',  name:'Pocket Dragon',      price:600,  req:10, effect:'+15 gold per activity + intimidates interviewers',effectKey:'dragonGold',effectVal:15, desc:'A small but fierce companion. Sits on your shoulder in Zoom calls.',lore:'Only legends carry dragons.', pet:true},
+  {id:'pet_owl',      cat:'pets',     icon:'🦉',  name:'Wisdom Owl',         price:300,  req:5,  effect:'+20% XP from research activities',  effectKey:'owlXP',    effectVal:.20, desc:'Whispers insights about companies into your ear before calls.',       lore:'Nocturnal intelligence gathering.', pet:true},
+
+  // LODGING — permanent passive income / morale
+  {id:'tent',         cat:'lodging',  icon:'⛺',  name:'Humble Tent',        price:0,    req:1,  effect:'Starting quarters. +2 gold/day just for opening the app',effectKey:'dailyGold',effectVal:2, desc:'A basic shelter. But it\'s yours, and every hero starts here.',   lore:'Home is where the job search is.'},
+  {id:'cottage',      cat:'lodging',  icon:'🏡',  name:'Countryside Cottage',price:300,  req:3,  effect:'+5 gold/day + +5% XP bonus',        effectKey:'cottageMult',effectVal:.05, desc:'A proper home base. Comfortable enough to strategize.',              lore:'You can\'t conquer kingdoms from a tent forever.'},
+  {id:'manor',        cat:'lodging',  icon:'🏰',  name:'Stone Manor',        price:800,  req:8,  effect:'+10 gold/day + +15% XP bonus',      effectKey:'manorMult',effectVal:.15, desc:'A manor worthy of a Director of Sales. Impresses references.',        lore:'Command presence starts at home.'},
+  {id:'castle',       cat:'lodging',  icon:'🏯',  name:'Champion\'s Castle', price:2000, req:16, effect:'+25 gold/day + +25% XP + gold multiplier x1.5',effectKey:'castleMult',effectVal:.25, desc:'The ultimate base of operations. You\'ve earned this.',            lore:'The throne of the fully employed awaits.'},
+
+  // MOUNTS — streak & speed bonuses
+  {id:'horse',        cat:'mounts',   icon:'🐎',  name:'Swift Horse',        price:200,  req:2,  effect:'Streak protection: miss 1 day without losing streak',effectKey:'streakProtect',effectVal:1, desc:'Fast enough to keep up with your goals even on off days.',       lore:'The best candidates keep moving.'},
+  {id:'pegasus',      cat:'mounts',   icon:'🦄',  name:'Pegasus',            price:700,  req:9,  effect:'Streak protection + double streak bonus gold',effectKey:'pegasusStreak',effectVal:2, desc:'Transcends the ordinary. Your streak is virtually unbreakable.',   lore:'Rise above the competition.'},
+  {id:'griffin',      cat:'mounts',   icon:'🦅',  name:'Golden Griffin',     price:1500, req:14, effect:'+100 gold on every 7-day streak milestone',effectKey:'griffinStreak',effectVal:100, desc:'A magnificent beast that rewards consistency above all else.',    lore:'The weekly warrior\'s companion.'},
+];
+
+const STORE_CATS = [
+  {key:'all',     label:'All'},
+  {key:'weapons', label:'⚔️ Weapons'},
+  {key:'armor',   label:'🛡️ Armor'},
+  {key:'magic',   label:'🔮 Magic'},
+  {key:'pets',    label:'🐾 Pets'},
+  {key:'lodging', label:'🏡 Lodging'},
+  {key:'mounts',  label:'🐎 Mounts'},
+];
+
+// ══════════════════════════════════════════════════════════════════
+// GAME DATA
+// ══════════════════════════════════════════════════════════════════
+const QUESTS=[
+  {id:'apply',     icon:'📨',name:'Submit Application',     desc:'Apply to a job posting',           xp:15, dmg:50,  gold:10, needsPerson:false,needsResume:true,  setStatus:'applied'},
+  {id:'linkedin',  icon:'🔗',name:'LinkedIn Outreach',      desc:'Message a recruiter or contact',   xp:20, dmg:80,  gold:8,  needsPerson:true, needsResume:false},
+  {id:'research',  icon:'🔍',name:'Company Research',       desc:'Research a target employer',       xp:10, dmg:30,  gold:5,  needsPerson:false,needsResume:false,hasNotes:true,hasNPC:true},
+  {id:'phone',     icon:'📞',name:'Phone Screen',           desc:'Initial recruiter call',           xp:50, dmg:200, gold:25, needsPerson:true, needsResume:false,setStatus:'interviewing'},
+  {id:'interview1',icon:'🗣️',name:'First Interview',        desc:'First round with employer',        xp:100,dmg:350, gold:50, needsPerson:true, needsResume:false,setStatus:'interviewing'},
+  {id:'interview2',icon:'🎯',name:'Final / Panel Interview',desc:'Advanced round or panel',          xp:175,dmg:550, gold:100,needsPerson:true, needsResume:false,setStatus:'interviewing'},
+  {id:'followup',  icon:'✉️',name:'Thank-You Note',         desc:'Post-interview follow-up',         xp:25, dmg:100, gold:10, needsPerson:true, needsResume:false},
+  {id:'network',   icon:'🤝',name:'Networking Event',       desc:'Met contact in person',            xp:40, dmg:150, gold:20, needsPerson:true, needsResume:false},
+  {id:'referral',  icon:'⭐',name:'Referral Secured',       desc:'Someone referred you internally',  xp:80, dmg:300, gold:40, needsPerson:true, needsResume:false},
+  {id:'negotiate', icon:'💰',name:'Salary Negotiation',     desc:'Negotiate offer terms',            xp:120,dmg:400, gold:75, needsPerson:true, needsResume:false,setStatus:'offer'},
+  {id:'reject',    icon:'❌',name:'Rejection Received',     desc:'They passed — log it and move on', xp:30, dmg:0,   gold:15, needsPerson:false,needsResume:false,setStatus:'rejected'},
+  {id:'offer',     icon:'🏆',name:'Offer Received!',        desc:'A written offer in hand',          xp:300,dmg:1000,gold:200,needsPerson:true, needsResume:false,setStatus:'offer'},
+];
+
+const ACHIEVEMENTS=[
+  {id:'first',    icon:'⚔️',label:'First Quest',    gold:10,  check:s=>s.totalActions>=1},
+  {id:'app5',     icon:'📨',label:'5 Apps',         gold:25,  check:s=>(s.counts.apply||0)>=5},
+  {id:'app25',    icon:'📬',label:'25 Apps',        gold:100, check:s=>(s.counts.apply||0)>=25},
+  {id:'net3',     icon:'🤝',label:'Networker',      gold:30,  check:s=>(s.counts.network||0)>=3},
+  {id:'ph1',      icon:'📞',label:'Ring Ring',      gold:40,  check:s=>(s.counts.phone||0)>=1},
+  {id:'int1',     icon:'🗣️',label:'Contender',      gold:75,  check:s=>(s.counts.interview1||0)>=1},
+  {id:'int5',     icon:'🎯',label:'Interview Pro',  gold:200, check:s=>(s.counts.interview1||0)>=5},
+  {id:'fu5',      icon:'✉️',label:'Class Act',      gold:50,  check:s=>(s.counts.followup||0)>=5},
+  {id:'str3',     icon:'🔥',label:'3-Day Fire',     gold:30,  check:s=>s.streak>=3},
+  {id:'str7',     icon:'⚡',label:'Wk Warrior',     gold:70,  check:s=>s.streak>=7},
+  {id:'lv5',      icon:'🌟',label:'Level 5',        gold:100, check:s=>s.level>=5},
+  {id:'boss1',    icon:'🏢',label:'Boss Slayer',    gold:150, check:s=>Object.values(s.companies).some(c=>c.dmgDealt>=c.maxHp)},
+  {id:'offer1',   icon:'👑',label:'Offer!',         gold:500, check:s=>(s.counts.offer||0)>=1},
+  {id:'neg1',     icon:'💰',label:'Negotiator',     gold:100, check:s=>(s.counts.negotiate||0)>=1},
+  {id:'rej5',     icon:'🛡️',label:'Resilient',      gold:60,  check:s=>(s.counts.reject||0)>=5},
+  {id:'str30',    icon:'🌊',label:'30-Day Legend',  gold:300, check:s=>s.streak>=30},
+  {id:'net10',    icon:'🌐',label:'Super Network',  gold:150, check:s=>(s.counts.network||0)>=10},
+  {id:'lv10',     icon:'💎',label:'Level 10',       gold:250, check:s=>s.level>=10},
+];
+
+const RANKS=[
+  {minLevel:1, title:'Novice Seeker',       avatar:'🧙'},
+  {minLevel:3, title:'Apprentice Candidate',avatar:'⚔️'},
+  {minLevel:5, title:'Journeyman Applicant',avatar:'🛡️'},
+  {minLevel:8, title:'Seasoned Contender',  avatar:'🏹'},
+  {minLevel:12,title:'Master Networker',    avatar:'🌟'},
+  {minLevel:16,title:'Elite Candidate',     avatar:'👑'},
+  {minLevel:20,title:'Champion of Offers',  avatar:'🏆'},
+];
+
+const STATUSES=['active','applied','interviewing','offer','rejected','withdrawn','closed'];
+const STATUS_COLORS={active:'st-active',applied:'st-applied',interviewing:'st-interviewing',offer:'st-offer',rejected:'st-rejected',withdrawn:'st-withdrawn',closed:'st-closed'};
+const STATUS_LABELS={active:'Active',applied:'Applied',interviewing:'Interviewing',offer:'Offer',rejected:'Rejected',withdrawn:'Withdrawn',closed:'Closed'};
+const DAYS=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+const ROLE_MAX=1000,CO_MAX=10000,SK='jsq_v9';
+
+const LORE_BANNERS=[
+  '"The Kingdom of Employment lies beyond the fog. Every application is an arrow loosed. Every interview a battle joined. Every offer — a fortress taken."',
+  '"Gold follows courage. Every rejection is a battle scar that makes you richer. Spend wisely."',
+  '"The wise adventurer researches the dungeon before entering. Know your enemy. Know your worth."',
+  '"Your network is your army. An army marches on its connections."',
+  '"A recruiter\'s phone screen is the gate to the castle. Speak well. Dress sharp. Know your numbers."',
+  '"They say the best sword doesn\'t win the interview — the best story does. But a good sword helps."',
+  '"Persistence is the rarest magic. Most heroes quit at the third rejection. You are not most heroes."',
+];
+
+// ══════════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════════
+let S={xp:0,level:1,totalActions:0,actionsToday:0,streak:0,lastDate:null,
+  weekActivity:[false,false,false,false,false,false,false],
+  log:[],counts:{},achievements:{},companies:{},contacts:{},
+  gold:0,owned:[],equipped:{weapon:null,armor:null,pet:null,lodging:'tent',mount:null},
+  goals:{weekly_apply:5,weekly_network:3,weekly_outreach:5},collapsed:{},
+  dailyGoldClaimed:null,storeCat:'all'
+};
+
+function save(){try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){}}
+function load(){try{const r=localStorage.getItem(SK);if(r)S=Object.assign({companies:{},contacts:{},gold:0,owned:[],equipped:{weapon:null,armor:null,pet:null,lodging:'tent',mount:null},goals:{weekly_apply:5,weekly_network:3,weekly_outreach:5},collapsed:{},dailyGoldClaimed:null,storeCat:'all'},JSON.parse(r));}catch(e){}}
+
+// ══════════════════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════════════════
+function xpForLvl(l){return Math.floor(100*Math.pow(1.4,l-1));}
+function getRank(){let r=RANKS[0];RANKS.forEach(x=>{if(S.level>=x.minLevel)r=x;});return r;}
+function totalXP(){let t=S.xp;for(let l=1;l<S.level;l++)t+=xpForLvl(l);return t;}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function hpColor(d,m){const p=(d/m)*100;return p<30?'#2a7a2a':p<70?'#b8900a':'#8b1a1a';}
+function fmt(n){return n>=1000?(Math.round(n/100)/10)+'k':n;}
+function ts(){return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}
+function ds(){return new Date().toLocaleDateString([],{month:'short',day:'numeric'});}
+function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function contactsByCompany(coId){return Object.values(S.contacts).filter(c=>c.companyId===coId);}
+function allRoles(){const out=[];Object.values(S.companies).forEach(co=>{Object.values(co.roles||{}).forEach(r=>out.push({...r,companyId:co.id,companyName:co.name}));});return out;}
+
+// Item effect helpers
+function getEffect(key){
+  const item=S.owned.map(id=>STORE_ITEMS.find(i=>i.id===id)).filter(Boolean)
+    .find(i=>i&&i.effectKey===key&&isEquipped(i));
+  return item?item.effectVal:0;
+}
+function getAllEffect(key){
+  // sum all owned equipped items with this key
+  let total=0;
+  S.owned.forEach(id=>{const item=STORE_ITEMS.find(i=>i.id===id);
+    if(item&&item.effectKey===key&&isEquipped(item))total+=item.effectVal;});
+  return total;
+}
+function isEquipped(item){
+  if(!item)return false;
+  if(item.consumable)return false;
+  const cat=item.cat;
+  if(cat==='weapons')return S.equipped.weapon===item.id;
+  if(cat==='armor')return S.equipped.armor===item.id;
+  if(cat==='pets')return S.equipped.pet===item.id;
+  if(cat==='lodging')return S.equipped.lodging===item.id;
+  if(cat==='mounts')return S.equipped.mount===item.id;
+  if(cat==='magic')return S.owned.includes(item.id); // magic items always active
+  return false;
+}
+function equip(itemId){
+  const item=STORE_ITEMS.find(i=>i.id===itemId);if(!item)return;
+  if(item.cat==='weapons')S.equipped.weapon=itemId;
+  else if(item.cat==='armor')S.equipped.armor=itemId;
+  else if(item.cat==='pets')S.equipped.pet=itemId;
+  else if(item.cat==='lodging')S.equipped.lodging=itemId;
+  else if(item.cat==='mounts')S.equipped.mount=itemId;
+  save();render();
+}
+
+function addGold(amount,reason,x,y){
+  if(amount<=0)return;
+  S.gold=(S.gold||0)+amount;
+  // visual effect
+  if(x&&y)goldFly(x,y);
+  return amount;
+}
+
+function goldFly(x,y){
+  const el=document.createElement('div');
+  el.className='gold-fly';el.textContent='💰';
+  el.style.left=x+'px';el.style.top=y+'px';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),900);
+}
+
+// Daily gold from lodging
+function claimDailyGold(){
+  const today=new Date().toDateString();
+  if(S.dailyGoldClaimed===today)return 0;
+  const lodging=STORE_ITEMS.find(i=>i.id===(S.equipped.lodging||'tent'));
+  const base=2; // tent default
+  const bonus=lodging?.effectVal||0;
+  const total=base+bonus;
+  S.dailyGoldClaimed=today;
+  addGold(total,'Daily lodging income');
+  return total;
+}
+
+let _toastT;
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(_toastT);_toastT=setTimeout(()=>t.classList.remove('show'),3500);}
+
+function updateStreak(){
+  const today=new Date().toDateString();
+  if(S.lastDate===today)return;
+  const yd=new Date();yd.setDate(yd.getDate()-1);
+  const hadYesterday=S.lastDate===yd.toDateString();
+  const mountProtect=S.owned.includes('horse')||S.owned.includes('pegasus');
+
+  if(hadYesterday){S.streak=(S.streak||0)+1;}
+  else if(!mountProtect){S.streak=1;}
+  else{S.streak=(S.streak||1);} // mount protects
+
+  S.lastDate=today;S.weekActivity[new Date().getDay()]=true;S.actionsToday=0;
+
+  // Streak milestone gold
+  if(S.streak%7===0){
+    const bonus=S.owned.includes('griffin')?100:50;
+    addGold(bonus,'7-day streak milestone');
+    setTimeout(()=>toast(`🔥 ${S.streak}-day streak! +${bonus} gold!`),500);
+  }
+  // Pegasus double streak bonus handled in goal check
+}
+
+// ══════════════════════════════════════════════════════════════════
+// LOG ACTIVITY
+// ══════════════════════════════════════════════════════════════════
+function logActivity(quest,coId,roleId,contactId,resumeInfo,notes,evt){
+  updateStreak();
+
+  // XP with multipliers
+  const xpMult=1+getAllEffect('xpMult')+(quest.id==='interview1'||quest.id==='interview2'?getAllEffect('interviewXP'):0)+(quest.id==='research'?getAllEffect('owlXP'):0);
+  const earnedXP=Math.round(quest.xp*xpMult);
+
+  S.xp+=earnedXP;S.actionsToday++;S.totalActions++;
+  S.counts[quest.id]=(S.counts[quest.id]||0)+1;
+  S.weekActivity[new Date().getDay()]=true;
+  let leveled=false,newLevel=S.level;
+  while(S.xp>=xpForLvl(S.level)){S.xp-=xpForLvl(S.level);S.level++;leveled=true;newLevel=S.level;}
+
+  // Gold with multipliers
+  let earnedGold=quest.gold;
+  const dmgMult=1+getAllEffect('dmgMult');
+
+  if(quest.id==='linkedin')earnedGold+=getAllEffect('linkedinGold');
+  if(quest.id==='negotiate')earnedGold+=Math.round(quest.gold*getAllEffect('negotiateGold'))+Math.round(quest.gold*getAllEffect('salaryReveal'));
+  if(quest.id==='research')earnedGold+=getAllEffect('researchGold');
+  if(quest.id==='reject')earnedGold+=getAllEffect('rejectionGold');
+  if(quest.id==='network')earnedGold+=getAllEffect('ravenGold');
+
+  // Pet bonus
+  const petGold=getAllEffect('petGold')+getAllEffect('dragonGold');
+  earnedGold+=petGold;
+
+  addGold(earnedGold,'activity',evt?.clientX,evt?.clientY);
+
+  const t=ts(),d=ds(),iso=new Date().toISOString();
+  const co=S.companies[coId];const role=co&&co.roles[roleId];const contact=contactId&&S.contacts[contactId];
+
+  const entry={time:t,date:d,isoDate:iso,questId:quest.id,questName:quest.name,questIcon:quest.icon,
+    xp:earnedXP,gold:earnedGold,coId,roleId,contactId:contactId||null,
+    contactName:contact?.name||'',notes:notes||'',
+    resumeName:resumeInfo?.name||'',resumeData:resumeInfo?.data||''};
+
+  const gMsg=`${quest.icon} ${quest.name}${role?' → '+role.name:''}${contact?' w/ '+contact.name:''}${co?' @ '+co.name:''} +${earnedXP}XP +${earnedGold}💰`;
+  S.log.unshift({...entry,msg:gMsg});if(S.log.length>60)S.log.pop();
+
+  if(co){co.actLog=co.actLog||[];co.actLog.unshift(entry);if(co.actLog.length>50)co.actLog.pop();}
+  if(role){
+    role.actLog=role.actLog||[];role.actLog.unshift(entry);if(role.actLog.length>50)role.actLog.pop();
+    if(resumeInfo?.name){role.resumes=role.resumes||[];if(!role.resumes.find(r=>r.name===resumeInfo.name))role.resumes.push({name:resumeInfo.name,data:resumeInfo.data});}
+    if(quest.setStatus)role.status=quest.setStatus;
+    // damage with weapon multiplier
+    if(quest.dmg>0)role.dmgDealt=(role.dmgDealt||0)+Math.round(quest.dmg*dmgMult);
+  }
+  if(contact){contact.actLog=contact.actLog||[];contact.actLog.unshift(entry);if(contact.actLog.length>50)contact.actLog.pop();contact.lastContacted=iso;}
+  if(coId&&co&&quest.dmg>0)co.dmgDealt=(co.dmgDealt||0)+Math.round(Math.max(1,Math.floor(quest.dmg/2))*dmgMult);
+
+  // Check achievements
+  const na=[];
+  ACHIEVEMENTS.forEach(a=>{
+    if(!S.achievements[a.id]&&a.check(S)){
+      S.achievements[a.id]=true;na.push(a);
+      addGold(a.gold,`Achievement: ${a.label}`);
+    }
+  });
+
+  // Level up gold
+  if(leveled){const lvlGold=newLevel*20;addGold(lvlGold,'Level up!');
+    setTimeout(()=>toast(`⬆️ LEVEL UP ${newLevel}! +${lvlGold}💰 — ${getRank().title}!`),100);}
+  else if(na.length){setTimeout(()=>toast(`🏆 Achievement: ${na[0].label}! +${na[0].gold}💰`),100);}
+  else{setTimeout(()=>toast(`${quest.icon} +${earnedXP}XP +${earnedGold}💰`),50);}
+
+  // Update lore banner randomly
+  if(Math.random()<0.2)document.getElementById('loreBanner').textContent=LORE_BANNERS[Math.floor(Math.random()*LORE_BANNERS.length)];
+
+  save();render();closeModal();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// STORE
+// ══════════════════════════════════════════════════════════════════
+function purchaseItem(itemId,evt){
+  const item=STORE_ITEMS.find(i=>i.id===itemId);if(!item)return;
+  if(S.level<item.req){toast(`⚠️ Requires Level ${item.req}`);return;}
+  if(S.gold<item.price){toast(`💰 Not enough gold! Need ${item.price}, have ${S.gold}`);return;}
+  if(S.owned.includes(itemId)&&!item.consumable){toast('Already owned!');return;}
+
+  S.gold-=item.price;
+
+  if(item.consumable){
+    // Apply immediately
+    if(item.effectKey==='xpBoost'){S.xp+=item.effectVal;toast(`🧪 +${item.effectVal} XP absorbed!`);}
+    else if(item.effectKey==='goldBoost'){addGold(item.effectVal,'Gold Elixir',evt?.clientX,evt?.clientY);toast(`⚗️ +${item.effectVal} gold transmuted!`);}
+    else if(item.effectKey==='applyBoost'){S.counts.apply=(S.counts.apply||0)+item.effectVal;toast(`📜 +${item.effectVal} applications counted!`);}
+    // level check after xp boost
+    while(S.xp>=xpForLvl(S.level)){S.xp-=xpForLvl(S.level);S.level++;}
+  } else {
+    if(!S.owned.includes(itemId))S.owned.push(itemId);
+    equip(itemId);
+    toast(`${item.icon} ${item.name} equipped!`);
+  }
+
+  if(evt)goldFly(evt.clientX,evt.clientY);
+  save();render();closeModal();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CRUD
+// ══════════════════════════════════════════════════════════════════
+function addCompany(){const name=_v('coName'),url=_v('coUrl');if(!name)return;const id=uid();S.companies[id]={id,name,careersUrl:url,dmgDealt:0,maxHp:CO_MAX,roles:{},actLog:[]};save();render();closeModal();toast(`🏢 ${name} added!`);}
+async function addRole(coId){const name=_v('rName'),city=_v('rCity'),state=_v('rState'),url=_v('rUrl'),salary=_v('rSalary'),deadline=_v('rDeadline'),followUp=_v('rFollowUp');if(!name)return;const id=uid();const role={id,name,location:`${city}${city&&state?', ':''}${state}`,url,salary,deadline,followUpDate:followUp,status:'active',dmgDealt:0,maxHp:ROLE_MAX,description:'',importStatus:'',resumes:[],actLog:[]};S.companies[coId].roles[id]=role;save();render();closeModal();toast(`🎯 ${name} added!`);if(url)importRole(coId,id,url);}
+function updateRole(coId,roleId){const role=S.companies[coId]?.roles[roleId];if(!role)return;role.name=_v('rName')||role.name;const c=_v('rCity'),st=_v('rState');role.location=`${c}${c&&st?', ':''}${st}`;role.url=_v('rUrl');role.salary=_v('rSalary');role.deadline=_v('rDeadline');role.followUpDate=_v('rFollowUp');role.status=_v('rStatus')||role.status;save();render();closeModal();toast(`✏️ Updated!`);}
+async function importRole(coId,roleId,url){const role=S.companies[coId]?.roles[roleId];if(!role)return;role.importStatus='loading';save();render();try{const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,tools:[{type:'web_search_20250305',name:'web_search'}],messages:[{role:'user',content:`Search for and summarize the job posting at: ${url}\nExtract: 1) Role summary 2) Key responsibilities 3) Required qualifications 4) Preferred qualifications 5) Location/salary.\nFormat as plain text, clear section labels, under 500 words.`}]})});const data=await resp.json();let text='';if(data.content)data.content.forEach(b=>{if(b.type==='text')text+=b.text;});role.description=text.trim()||`Job posting: ${url}`;role.importStatus='done';}catch(e){role.description=`Job posting: ${url}\n(Auto-import failed.)`;role.importStatus='error';}save();render();toast(`📄 Role imported!`);}
+function saveNPC(existingId,coId){const name=_v('nName');if(!name)return null;const id=existingId||uid();const prev=existingId&&S.contacts[existingId]||{};S.contacts[id]={...prev,id,name,title:_v('nTitle'),city:_v('nCity'),linkedinUrl:_v('nLI'),email:_v('nEmail'),phone:_v('nPhone'),notes:_v('nNotes'),howMet:_v('nHowMet'),relationship:_ctx.relStrength||prev.relationship||1,companyId:coId||prev.companyId,companyName:S.companies[coId||prev.companyId]?.name||prev.companyName||''};if(!S.contacts[id].actLog)S.contacts[id].actLog=[];save();render();return id;}
+function saveGoals(){S.goals={weekly_apply:parseInt(_v('gApply'))||5,weekly_network:parseInt(_v('gNetwork'))||3,weekly_outreach:parseInt(_v('gOutreach'))||5};save();render();closeModal();toast('🎯 Goals saved!');}
+function _v(id){const el=document.getElementById(id);return el?el.value.trim():'';}
+function _fv(id){const el=document.getElementById(id);return el?el.value:'';}
+
+// ══════════════════════════════════════════════════════════════════
+// RENDER
+// ══════════════════════════════════════════════════════════════════
+function render(){
+  const rank=getRank(),needed=xpForLvl(S.level),pct=Math.min(100,Math.round(S.xp/needed*100));
+  document.getElementById('hAv').childNodes[0].textContent=rank.avatar;
+  document.getElementById('hRank').textContent='RANK: '+rank.title.toUpperCase();
+  document.getElementById('xpLbl').textContent=S.xp+' / '+needed+' XP';
+  document.getElementById('xpBar').style.width=pct+'%';
+  document.getElementById('lvl').textContent=S.level;
+  document.getElementById('sTXP').textContent=totalXP();
+  document.getElementById('sTod').textContent=S.actionsToday;
+  document.getElementById('sQ').textContent=S.totalActions;
+  document.getElementById('sStr').textContent=S.streak;
+  document.getElementById('sGold').textContent=S.gold;
+  document.getElementById('storeGold').textContent=S.gold;
+
+  // Pet display
+  const petId=S.equipped.pet;const petEl=document.getElementById('heroPet');
+  if(petId){const pet=STORE_ITEMS.find(i=>i.id===petId);if(pet){petEl.textContent=pet.icon;petEl.style.display='flex';}}
+  else petEl.style.display='none';
+
+  // Equipped strip
+  const equippedItems=['weapon','armor','lodging','mount'].map(slot=>{
+    const id=S.equipped[slot];if(!id)return null;return STORE_ITEMS.find(i=>i.id===id);
+  }).filter(Boolean);
+  document.getElementById('equippedStrip').innerHTML=equippedItems.map(i=>
+    `<div class="eq-item"><span class="ei">${i.icon}</span><span class="en">${i.name}</span></div>`).join('');
+
+  renderPipeline();renderGoals();renderReminders();
+  renderDots();renderLog();renderArena();renderStore();renderAch();
+}
+
+function renderPipeline(){
+  const c=pipelineCounts();
+  document.getElementById('pipeline').innerHTML=[
+    {key:'active',l:'Active',dot:'#6699ff'},{key:'applied',l:'Applied',dot:'#c9a84c'},
+    {key:'interviewing',l:'Interview',dot:'#ff9966'},{key:'offer',l:'Offer',dot:'#66cc77'},
+    {key:'rejected',l:'Rejected',dot:'#888'}
+  ].map(i=>`<div class="pipe-col"><div class="pipe-count">${c[i.key]||0}</div>
+    <span class="pipe-dot" style="background:${i.dot}"></span>
+    <div class="pipe-label">${i.l}</div></div>`).join('');
+}
+function pipelineCounts(){const c={active:0,applied:0,interviewing:0,offer:0,rejected:0,withdrawn:0,closed:0};Object.values(S.companies).forEach(co=>{Object.values(co.roles||{}).forEach(r=>{c[r.status||'active']=(c[r.status||'active']||0)+1;});});return c;}
+
+function renderGoals(){
+  const wc=weekCounts(),g=S.goals||{};
+  const items=[
+    {l:'Applications',cur:wc.apply,tgt:g.weekly_apply||5,color:'#c9a84c'},
+    {l:'Networking',cur:wc.network,tgt:g.weekly_network||3,color:'#66cc77'},
+    {l:'Outreach',cur:wc.outreach,tgt:g.weekly_outreach||5,color:'#6699ff'},
+  ];
+  document.getElementById('goalsRow').innerHTML=items.map(i=>{
+    const pct=Math.min(100,Math.round((i.cur/i.tgt)*100));
+    const done=i.cur>=i.tgt;
+    return `<div class="goal-item" style="${done?'border-color:#2a6a2a;background:rgba(42,106,42,.08)':''}">
+      <div class="goal-label">${i.l} / Week${done?' ✓':''}</div>
+      <div class="goal-bar-bg"><div class="goal-bar-fill" style="width:${pct}%;background:${i.color}"></div></div>
+      <div class="goal-nums"><span>${i.cur} done</span><span>goal: ${i.tgt}</span></div>
+    </div>`;}).join('');
+}
+function weekCounts(){
+  const now=new Date(),sw=new Date(now);sw.setDate(now.getDate()-now.getDay());sw.setHours(0,0,0,0);
+  return{apply:(S.log||[]).filter(e=>e.questId==='apply'&&new Date(e.isoDate||0)>=sw).length,
+    network:(S.log||[]).filter(e=>e.questId==='network'&&new Date(e.isoDate||0)>=sw).length,
+    outreach:(S.log||[]).filter(e=>e.questId==='linkedin'&&new Date(e.isoDate||0)>=sw).length};
+}
+
+function renderReminders(){
+  const today=new Date();today.setHours(23,59,59,999);
+  const reminders=[];
+  Object.values(S.companies).forEach(co=>{Object.values(co.roles||{}).forEach(r=>{
+    if(r.followUpDate){const d=new Date(r.followUpDate);if(d<=today)reminders.push({coId:co.id,coName:co.name,roleId:r.id,roleName:r.name,date:r.followUpDate,overdue:d<new Date()});}
+  });});
+  reminders.sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const card=document.getElementById('remCard');
+  if(!reminders.length){card.style.display='none';return;}
+  card.style.display='';
+  document.getElementById('remList').innerHTML=reminders.map(r=>`
+    <div class="reminder-item ${r.overdue?'overdue':''}">
+      <div class="rem-date ${r.overdue?'overdue':''}">${new Date(r.date).toLocaleDateString([],{month:'short',day:'numeric'})}</div>
+      <div style="flex:1"><div style="font-size:12px;color:var(--ink)">${escH(r.roleName)}</div>
+      <div style="font-size:10px;color:var(--il)">🏢 ${escH(r.coName)}</div></div>
+      <button class="btn bsm bgh" onclick="openQuestModal(null,'${r.roleId}','${r.coId}')">⚔ Act</button>
+      <button class="btn bsm bgh" onclick="dismissReminder('${r.coId}','${r.roleId}')">✓</button>
+    </div>`).join('');
+}
+function dismissReminder(coId,roleId){if(S.companies[coId]?.roles[roleId])S.companies[coId].roles[roleId].followUpDate='';save();render();}
+
+function renderDots(){document.getElementById('wDots').innerHTML=DAYS.map((d,i)=>`<div class="dd"><div class="dot ${S.weekActivity[i]?'on':''}">${S.weekActivity[i]?'✓':''}</div><div class="dlbl">${d}</div></div>`).join('');}
+function renderLog(){const el=document.getElementById('logEl');el.innerHTML=S.log.length?S.log.map(e=>`<div class="lentry"><span class="lt">${e.time} </span>${e.msg}</div>`).join(''):'<div class="lentry"><span class="lt">START </span>No activity yet.</div>';}
+
+function renderStore(){
+  // Tabs
+  document.getElementById('storeTabs').innerHTML=STORE_CATS.map(c=>
+    `<div class="stab ${(S.storeCat||'all')===c.key?'on':''}" onclick="setStoreCat('${c.key}')">${c.label}</div>`).join('');
+
+  const cat=S.storeCat||'all';
+  const items=STORE_ITEMS.filter(i=>cat==='all'||i.cat===cat);
+  document.getElementById('storeGrid').innerHTML=items.map(item=>{
+    const owned=S.owned.includes(item.id);
+    const locked=S.level<item.req;
+    const equipped=isEquipped(item);
+    const canBuy=!locked&&(item.consumable||!owned);
+    const bg=item.cat==='weapons'?'rgba(139,26,26,.06)':item.cat==='armor'?'rgba(26,60,108,.06)':item.cat==='magic'?'rgba(58,26,108,.06)':item.cat==='pets'?'rgba(42,90,42,.06)':item.cat==='lodging'?'rgba(138,104,32,.08)':'rgba(60,20,80,.06)';
+    return `<div class="store-card ${owned&&!item.consumable?'owned':''} ${locked?'locked':''}" style="background:${bg}">
+      ${equipped?`<div class="sc-equipped">equipped</div>`:''}
+      <span class="sc-icon">${item.icon}</span>
+      <div class="sc-name">${escH(item.name)}</div>
+      <div class="sc-desc">${escH(item.desc)}</div>
+      <div class="sc-effect">${escH(item.effect)}</div>
+      ${locked?`<div class="sc-req">Requires Level ${item.req}</div>`:
+        item.price===0&&owned?`<div class="sc-owned">✓ YOUR HOME BASE</div>`:
+        owned&&!item.consumable?`<div style="display:flex;gap:5px;justify-content:center">
+          <div class="sc-owned">✓ Owned</div>
+          ${!equipped?`<button class="btn bsm" onclick="equip('${item.id}');closeModal()" style="padding:3px 10px;font-size:10px">Equip</button>`:``}
+        </div>`:
+        `<div><div class="sc-price"><span class="coin">💰</span> ${item.price}</div>
+        <button class="btn bsm bgold" onclick="openModal('buyItem',{itemId:'${item.id}'})" style="margin-top:5px;width:100%">
+          ${item.consumable?'Use ('+item.price+'g)':'Buy'}
+        </button></div>`}
+    </div>`;
+  }).join('');
+}
+
+function setStoreCat(cat){S.storeCat=cat;save();renderStore();}
+
+function renderArena(){
+  const sq=(document.getElementById('searchInput')?.value||'').toLowerCase();
+  const fs=document.getElementById('filterStatus')?.value||'';
+  const cos=Object.values(S.companies).filter(co=>{
+    if(!sq&&!fs)return true;
+    const roles=Object.values(co.roles||{});
+    return(co.name.toLowerCase().includes(sq)||roles.some(r=>r.name.toLowerCase().includes(sq)||(r.location||'').toLowerCase().includes(sq))||contactsByCompany(co.id).some(c=>c.name.toLowerCase().includes(sq)))
+      &&(!fs||roles.some(r=>(r.status||'active')===fs));
+  });
+  const el=document.getElementById('arena');
+  if(!cos.length){el.innerHTML='<div class="empty">No companies yet. Add one to begin the siege.</div>';return;}
+  el.innerHTML=cos.map(co=>{
+    const roles=Object.values(co.roles||{}).filter(r=>!fs||(r.status||'active')===fs);
+    const contacts=contactsByCompany(co.id);
+    const pct=Math.min(100,(co.dmgDealt/co.maxHp)*100);
+    const milestone=co.dmgDealt>=co.maxHp;
+    const isCol=S.collapsed[co.id];
+    const lastHit=co.actLog&&co.actLog[0]?`Last: ${co.actLog[0].questName} (${co.actLog[0].time})`:'';
+
+    const contactsHtml=`<div class="npc-section"><div class="rlbl">NPCs</div>
+      <div class="npc-grid">
+        ${contacts.map(c=>{const rel=c.relationship||1;const cc=rel>=4?'npc-chip hot':rel>=3?'npc-chip warm':'npc-chip';
+          return `<div class="${cc}" onclick="openModal('viewNPC',{id:'${c.id}'})"><span>👤</span>
+            <div><div class="nc-name">${escH(c.name)}</div>
+            <div class="nc-title">${escH(c.title||'')}${c.city?' · '+escH(c.city):''}</div>
+            <div style="font-size:10px">${'●'.repeat(rel)}${'○'.repeat(5-rel)}</div></div></div>`;}).join('')}
+        <div class="npc-chip" onclick="openModal('editNPC',{coId:'${co.id}'})"><span>➕</span><div><div class="nc-name">Add NPC</div></div></div>
+      </div></div>`;
+
+    const rolesHtml=roles.length?`<div class="rs"><div class="rlbl">ROLES / MINI-BOSSES</div>
+      ${roles.map(r=>{
+        const rPct=Math.min(100,(r.dmgDealt/r.maxHp)*100);
+        const st=r.status||'active';
+        const dId='d_'+r.id;
+        const rcBg=st==='rejected'?'rgba(60,60,60,.12)':st==='offer'?'rgba(26,90,42,.08)':'rgba(139,26,26,.07)';
+        const rcB=st==='rejected'?'rgba(100,100,100,.3)':st==='offer'?'rgba(26,90,42,.3)':'rgba(139,26,26,.25)';
+        return `<div class="rc" style="background:${rcBg};border-color:${rcB}">
+          <div class="rh">
+            <span style="font-size:18px;flex-shrink:0">${st==='rejected'?'💀':st==='offer'?'🏆':'👤'}</span>
+            <div style="flex:1;min-width:100px">
+              <div class="rname">${escH(r.name)}<span class="status-badge ${STATUS_COLORS[st]}">${STATUS_LABELS[st]}</span></div>
+              ${r.location?`<div class="rloc">📍 ${escH(r.location)}</div>`:''}
+              ${r.salary?`<div class="salary-tag">💰 ${escH(r.salary)}</div>`:''}
+              ${r.deadline?`<div class="deadline-tag">⏳ ${r.deadline}</div>`:''}
+              ${r.followUpDate?`<div class="remind-flag ${new Date(r.followUpDate)<new Date()?'overdue':''}">⏰ ${r.followUpDate}</div>`:''}
+              <div class="rsub" style="margin-top:3px">${fmt(r.dmgDealt)} / ${fmt(r.maxHp)} DMG</div>
+              <div class="hprbg"><div class="hpfill" style="width:${rPct}%;background:${hpColor(r.dmgDealt,r.maxHp)}"></div></div>
+              ${r.actLog&&r.actLog[0]?`<div style="font-size:9px;color:#999;margin-top:2px">${r.actLog.length} interactions · Last: ${r.actLog[0].questName}</div>`:''}
+              <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px">
+                ${r.url?`<a href="${r.url}" target="_blank" class="clink">🔗</a>`:''}
+                ${r.description?`<button class="btn bsm bgh" style="padding:3px 8px;font-size:10px" onclick="toggleEl('${dId}')">📄</button>`:''}
+                ${r.importStatus==='loading'?`<span><span class="spin"></span></span>`:''}
+                <button class="btn bsm bgh" style="padding:3px 8px;font-size:10px" onclick="openModal('viewLog',{log:JSON.stringify((S.companies['${co.id}']||{roles:{}}).roles['${r.id}']?.actLog||[]),title:'${escH(r.name)}'})">📋</button>
+                ${r.resumes&&r.resumes.length?`<button class="btn bsm bgh" style="padding:3px 8px;font-size:10px" onclick="openModal('viewResumes',{coId:'${co.id}',roleId:'${r.id}'})">📄${r.resumes.length}</button>`:''}
+                <button class="btn bsm bgh" style="padding:3px 8px;font-size:10px" onclick="openModal('editRole',{coId:'${co.id}',roleId:'${r.id}'})">✏️</button>
+              </div>
+            </div>
+            <button class="btn bsm bred" style="margin-left:4px;flex-shrink:0" onclick="openQuestModal(null,'${r.id}','${co.id}')">⚔</button>
+          </div>
+          ${r.description?`<div class="rdesc" id="${dId}">${escH(r.description).replace(/\n/g,'<br>')}</div>`:''}
+        </div>`;}).join('')}
+    </div>`:'';
+
+    return `<div class="cb" style="border-color:${milestone?'#2a5a2a':'#6b1a1a'}">
+      <div class="ch" style="background:${milestone?'#0f2a0f':'#1e0808'}" onclick="toggleCollapse('${co.id}')">
+        <div class="chr">
+          <span style="font-size:22px;flex-shrink:0">${milestone?'✅':'🏢'}</span>
+          <div style="flex:1;min-width:120px">
+            <div class="cn">${escH(co.name)} <span style="font-size:12px;opacity:.6">${isCol?'▶':'▼'}</span></div>
+            ${co.careersUrl?`<a href="${co.careersUrl}" target="_blank" class="clink" onclick="event.stopPropagation()">🔗 Careers</a>`:''}
+            <div class="csub">${fmt(co.dmgDealt)}/${fmt(co.maxHp)} DMG · ${Object.keys(co.roles||{}).length} roles · ${contacts.length} NPCs</div>
+            <div class="hpbg"><div class="hpfill" style="width:${pct}%;background:${hpColor(co.dmgDealt,co.maxHp)}"></div></div>
+            ${lastHit?`<div style="font-size:9px;color:#777;margin-top:2px">${lastHit}</div>`:''}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0" onclick="event.stopPropagation()">
+            <button class="btn bsm bgh" onclick="openAddRoleModal('${co.id}','${escH(co.name)}')">+ Role</button>
+            <button class="btn bsm bgh" style="font-size:10px" onclick="openModal('viewLog',{coId:'${co.id}',title:'${escH(co.name)}'})">📋 Log</button>
+          </div>
+        </div>
+      </div>
+      <div class="co-body ${isCol?'collapsed':''}">
+        ${contactsHtml}${rolesHtml}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleCollapse(coId){S.collapsed=S.collapsed||{};S.collapsed[coId]=!S.collapsed[coId];save();renderArena();}
+function toggleEl(id){const el=document.getElementById(id);if(el)el.classList.toggle('open');}
+
+function renderAch(){
+  document.getElementById('achGrid').innerHTML=ACHIEVEMENTS.map(a=>`
+    <div class="ai ${S.achievements[a.id]?'on':''}" title="${a.label} (+${a.gold}💰)">
+      ${a.icon}<div class="albl">${a.label}</div>
+      ${S.achievements[a.id]?'':`<div style="font-size:8px;color:var(--gold);margin-top:1px">+${a.gold}💰</div>`}
+    </div>`).join('');
+}
+
+function renderQuestList(){
+  document.getElementById('questList').innerHTML=QUESTS.map(q=>`
+    <button class="qi" onclick="openQuestModal('${q.id}',null,null)">
+      <span style="font-size:18px;flex-shrink:0">${q.icon}</span>
+      <div style="flex:1"><div class="qn">${q.name}</div><div class="qd">${q.desc}</div></div>
+      <div class="qx"><span class="big">+${q.xp}XP</span><div class="gold-earn">+${q.gold}💰</div><div class="dmg">⚔${q.dmg}</div></div>
+    </button>`).join('');
+}
+
+function actLogHTML(entries){
+  if(!entries||!entries.length)return '<div style="font-size:11px;color:var(--il);font-style:italic;padding:8px">No activity yet.</div>';
+  return entries.map(e=>`<div class="alog-entry">
+    <span class="at">${e.date||''} ${e.time} · ${e.questIcon||''} ${e.questName||e.msg||''}${e.contactName?' w/ '+e.contactName:''}${e.gold?` · +${e.gold}💰`:''}</span>
+    ${e.resumeName?`<div style="font-size:10px;color:var(--gd)">📄 ${escH(e.resumeName)}</div>`:''}
+    ${e.notes?`<div class="anote">${escH(e.notes)}</div>`:''}
+  </div>`).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MODALS
+// ══════════════════════════════════════════════════════════════════
+let _ctx={},_pendingFile={name:'',data:''},_relStrength=1;
+
+function openModal(type,data={}){
+  _ctx={type,...data};_pendingFile={name:'',data:''};_relStrength=data.rel||1;
+  document.getElementById('mBox').innerHTML=buildModal(type,data);
+  document.getElementById('mOverlay').classList.add('open');
+}
+
+function buildModal(type,data){
+  if(type==='buyItem'){
+    const item=STORE_ITEMS.find(i=>i.id===data.itemId);if(!item)return '';
+    const canAfford=S.gold>=item.price;
+    const reqMet=S.level>=item.req;
+    return `<div class="purchase-big">
+      <span class="icon">${item.icon}</span>
+      <div class="pname">${escH(item.name)}</div>
+      <div class="pdesc">${escH(item.desc)}</div>
+      <div class="peffect">${escH(item.effect)}</div>
+      <div style="font-size:11px;color:var(--il);font-style:italic;margin-bottom:10px">"${escH(item.lore)}"</div>
+      <div class="pprice">💰 ${item.price} gold</div>
+      <div style="font-size:12px;color:var(--il);margin-top:4px">Your balance: ${S.gold} gold</div>
+    </div>
+    <div class="mf">
+      <button class="btn bgh" onclick="closeModal()">Cancel</button>
+      <button class="btn bgold" ${!canAfford||!reqMet?'disabled style="opacity:.4"':''} onclick="purchaseItem('${item.id}',event)">
+        ${!reqMet?`Requires Level ${item.req}`:!canAfford?`Need ${item.price-S.gold} more gold`:`Buy for ${item.price}💰`}
+      </button>
+    </div>`;
+  }
+
+  if(type==='viewNPC'){
+    const c=S.contacts[data.id];if(!c)return '';
+    const rel=c.relationship||1;
+    const last=c.lastContacted?new Date(c.lastContacted).toLocaleDateString([],{month:'short',day:'numeric',year:'numeric'}):'Never';
+    return `<div class="ct">👤 ${escH(c.name)}</div>
+      <div style="margin-bottom:12px">
+        ${c.title?`<div class="npc-view-row"><span class="nvl">TITLE</span>${escH(c.title)}</div>`:''}
+        ${c.city?`<div class="npc-view-row"><span class="nvl">CITY</span>${escH(c.city)}</div>`:''}
+        ${c.companyName?`<div class="npc-view-row"><span class="nvl">COMPANY</span>${escH(c.companyName)}</div>`:''}
+        ${c.howMet?`<div class="npc-view-row"><span class="nvl">HOW MET</span>${escH(c.howMet)}</div>`:''}
+        ${c.email?`<div class="npc-view-row"><span class="nvl">EMAIL</span><a href="mailto:${c.email}">${escH(c.email)}</a></div>`:''}
+        ${c.phone?`<div class="npc-view-row"><span class="nvl">PHONE</span><a href="tel:${c.phone}">${escH(c.phone)}</a></div>`:''}
+        ${c.linkedinUrl?`<div class="npc-view-row"><span class="nvl">LINKEDIN</span><a href="${c.linkedinUrl}" target="_blank">View →</a></div>`:''}
+        <div class="npc-view-row"><span class="nvl">LAST CONTACT</span>${last}</div>
+        <div class="npc-view-row"><span class="nvl">RELATIONSHIP</span>${'●'.repeat(rel)}${'○'.repeat(5-rel)} <span style="font-size:10px;color:var(--il);margin-left:6px">${['','Cold','Warm','Engaged','Strong','Champion'][rel]}</span></div>
+        ${c.notes?`<div style="margin-top:8px;padding:8px 10px;background:rgba(42,26,10,.06);border-left:3px solid var(--gold);font-size:12px;color:var(--il);line-height:1.5">${escH(c.notes)}</div>`:''}
+      </div>
+      <div class="sm">Activity Log</div>
+      <div class="alog">${actLogHTML(c.actLog)}</div>
+      <div class="mf"><button class="btn bgh" onclick="closeModal()">Close</button>
+      <button class="btn" onclick="openModal('editNPC',{id:'${c.id}',coId:'${c.companyId}'})">✏️ Edit</button></div>`;
+  }
+
+  if(type==='editNPC'){
+    const c=data.id?S.contacts[data.id]||{}:{};const coId=data.coId||c.companyId||'';const rel=c.relationship||1;
+    return `<div class="ct">${data.id?'✏️ Edit':'👤 Add'} NPC</div>
+      <label class="ilbl">Name *</label><input class="ti" id="nName" value="${escH(c.name||'')}" placeholder="Full name" autofocus>
+      <div class="two"><div><label class="ilbl">Title</label><input class="ti" id="nTitle" value="${escH(c.title||'')}"></div>
+      <div><label class="ilbl">City</label><input class="ti" id="nCity" value="${escH(c.city||'')}"></div></div>
+      <label class="ilbl">How We Met</label><input class="ti" id="nHowMet" value="${escH(c.howMet||'')}" placeholder="LinkedIn, conference…">
+      <label class="ilbl">LinkedIn</label><input class="ti" id="nLI" value="${escH(c.linkedinUrl||'')}" type="url">
+      <label class="ilbl">Email</label><input class="ti" id="nEmail" value="${escH(c.email||'')}" type="email">
+      <label class="ilbl">Phone</label><input class="ti" id="nPhone" value="${escH(c.phone||'')}" type="tel">
+      <label class="ilbl">Notes</label><textarea class="ta" id="nNotes">${escH(c.notes||'')}</textarea>
+      <label class="ilbl">Relationship Strength</label>
+      <div class="rel-strength" id="relDots">
+        ${[1,2,3,4,5].map(i=>`<div class="rs-dot ${i<=rel?'filled':''}" onclick="setRel(${i})"></div>`).join('')}
+        <span id="relLabel" style="font-size:11px;color:var(--il);margin-left:8px">${['','Cold','Warm','Engaged','Strong','Champion'][rel]}</span>
+      </div>
+      <div class="mf"><button class="btn bgh" onclick="${data.id?`openModal('viewNPC',{id:'${data.id}'})`:'closeModal()'}">Cancel</button>
+      <button class="btn" onclick="saveNPCModal()">Save</button></div>`;
+  }
+
+  if(type==='addCompany') return `<div class="ct">🏢 Add Target Company</div>
+    <label class="ilbl">Company Name *</label><input class="ti" id="coName" autofocus>
+    <label class="ilbl">Careers Page URL</label><input class="ti" id="coUrl" type="url">
+    <div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button><button class="btn" onclick="addCompany()">Begin Siege</button></div>`;
+
+  if(type==='addRole') return `<div class="ct">🎯 Add Role at ${escH(data.companyName)}</div>
+    <label class="ilbl">Role Title *</label><input class="ti" id="rName" autofocus>
+    <div class="two"><div><label class="ilbl">City</label><input class="ti" id="rCity"></div><div><label class="ilbl">State</label><input class="ti" id="rState"></div></div>
+    <label class="ilbl">Job Posting URL</label><input class="ti" id="rUrl" type="url">
+    <div class="two"><div><label class="ilbl">Salary Range</label><input class="ti" id="rSalary" placeholder="$120k-$140k"></div><div><label class="ilbl">Closes</label><input class="ti" id="rDeadline"></div></div>
+    <label class="ilbl">Follow-Up Date</label><input class="ti" id="rFollowUp" type="date">
+    <div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button><button class="btn" onclick="addRole('${data.coId}')">Add</button></div>`;
+
+  if(type==='editRole'){const r=S.companies[data.coId]?.roles[data.roleId];if(!r)return '';const loc=(r.location||'').split(', ');
+    return `<div class="ct">✏️ Edit: ${escH(r.name)}</div>
+      <label class="ilbl">Role Title</label><input class="ti" id="rName" value="${escH(r.name||'')}">
+      <div class="two"><div><label class="ilbl">City</label><input class="ti" id="rCity" value="${escH(loc[0]||'')}"></div><div><label class="ilbl">State</label><input class="ti" id="rState" value="${escH(loc[1]||'')}"></div></div>
+      <label class="ilbl">URL</label><input class="ti" id="rUrl" value="${escH(r.url||'')}" type="url">
+      <div class="two"><div><label class="ilbl">Salary</label><input class="ti" id="rSalary" value="${escH(r.salary||'')}"></div><div><label class="ilbl">Closes</label><input class="ti" id="rDeadline" value="${escH(r.deadline||'')}"></div></div>
+      <label class="ilbl">Status</label>
+      <select class="sel-input" id="rStatus">${STATUSES.map(s=>`<option value="${s}" ${(r.status||'active')===s?'selected':''}>${STATUS_LABELS[s]}</option>`).join('')}</select>
+      <label class="ilbl">Follow-Up Date</label><input class="ti" id="rFollowUp" type="date" value="${r.followUpDate||''}">
+      <div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button><button class="btn" onclick="updateRole('${data.coId}','${data.roleId}')">Save</button></div>`;}
+
+  if(type==='editGoals') return `<div class="ct">🎯 Weekly Goals</div>
+    <label class="ilbl">Applications / Week</label><input class="ti" id="gApply" type="number" value="${S.goals?.weekly_apply||5}">
+    <label class="ilbl">Networking / Week</label><input class="ti" id="gNetwork" type="number" value="${S.goals?.weekly_network||3}">
+    <label class="ilbl">Outreach / Week</label><input class="ti" id="gOutreach" type="number" value="${S.goals?.weekly_outreach||5}">
+    <div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button><button class="btn" onclick="saveGoals()">Save</button></div>`;
+
+  if(type==='pickRole'){const quest=data.quest;const roles=allRoles();
+    if(!roles.length)return `<div class="ct">⚔️ ${quest.icon} ${quest.name}</div><p class="note">No roles added yet.</p><div class="mf"><button class="btn bgh" onclick="closeModal()">Close</button></div>`;
+    return `<div class="ct">⚔️ ${quest.icon} ${quest.name}</div>
+      <p class="note">+${quest.xp}XP · +${quest.gold}💰 · ${quest.dmg} dmg · Pick target:</p>
+      <div id="rpList">${roles.map(r=>`<div class="rsi" id="rp_${r.id}" onclick="pickRole('${r.companyId}','${r.id}')">
+        <span style="font-size:18px">${r.status==='rejected'?'💀':r.status==='offer'?'🏆':'👤'}</span>
+        <div><div class="rsn">${escH(r.name)} <span class="status-badge ${STATUS_COLORS[r.status||'active']}">${STATUS_LABELS[r.status||'active']}</span></div>
+        <div class="rsc">🏢 ${escH(r.companyName)}${r.location?' · 📍'+escH(r.location):''}</div></div></div>`).join('')}</div>
+      <div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button>
+      <button class="btn" id="rpBtn" disabled style="opacity:.4" onclick="proceedFromRole()">Next →</button></div>`;}
+
+  if(type==='npcStep'){const quest=data.quest;const cc=contactsByCompany(data.coId);
+    return `<div class="ct">👤 Who was this with?</div>
+      <div class="tinfo"><div class="tin">${quest.icon} ${quest.name}</div><div class="tic">→ ${escH(data.roleName)} @ ${escH(data.coName)}</div></div>
+      ${cc.length?`<div class="sm">NPCs at ${escH(data.coName)}</div><div id="cpList">${cc.map(c=>`<div class="npc-card" id="cp_${c.id}" onclick="pickContact('${c.id}')"><div class="npc-name">${escH(c.name)}</div><div class="npc-meta">${escH(c.title||'')}${c.email?' · '+escH(c.email):''}</div></div>`).join('')}</div><div style="margin:8px 0;text-align:center;font-size:11px;color:var(--il)">— or new —</div>`:''}
+      <label class="ilbl">Name</label><input class="ti" id="nName" placeholder="Full name">
+      <div class="two"><div><label class="ilbl">Title</label><input class="ti" id="nTitle"></div><div><label class="ilbl">City</label><input class="ti" id="nCity"></div></div>
+      <label class="ilbl">LinkedIn</label><input class="ti" id="nLI" type="url">
+      <label class="ilbl">Email</label><input class="ti" id="nEmail" type="email">
+      <label class="ilbl">Phone</label><input class="ti" id="nPhone" type="tel">
+      <div class="divl"></div>
+      <label class="ilbl">Activity Notes</label><textarea class="ta" id="actNotes" placeholder="What happened…"></textarea>
+      <label class="ilbl">Follow-Up Reminder</label><input class="ti" id="actFollowUp" type="date">
+      <div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button><button class="btn" onclick="finishNPCStep(event)">Log Activity</button></div>`;}
+
+  if(type==='resumeStep'){const quest=data.quest;const role=S.companies[data.coId]?.roles[data.roleId];const prev=role?.resumes||[];
+    return `<div class="ct">📄 Application Details</div>
+      <div class="tinfo"><div class="tin">${quest.icon} ${quest.name}</div><div class="tic">→ ${escH(data.roleName)} @ ${escH(data.coName)}</div></div>
+      ${prev.length?`<div class="sm">Previous Resumes</div>${prev.map(r=>`<div class="prev-file" id="pf_${r.name.replace(/\W/g,'_')}" onclick="selectResume(${JSON.stringify(r).replace(/"/g,'&quot;')})"><span>📄</span><span class="fp-name">${escH(r.name)}</span>${r.data?`<button class="btn bsm bgh" style="padding:2px 8px;font-size:10px" onclick="event.stopPropagation();downloadFile('${escH(r.name)}','${r.data}')">⬇</button>`:''}</div>`).join('')}<div style="margin:8px 0;text-align:center;font-size:11px;color:var(--il)">— or upload new —</div>`:''}
+      <div class="file-zone" onclick="document.getElementById('fileInput').click()">
+        <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.txt" onchange="handleFileSelect(this)">
+        <div class="fz-label">📁 Upload Resume</div><div class="fz-sub">PDF, Word, or text</div>
+      </div>
+      <div id="filePreview"></div>
+      <label class="ilbl">Notes</label><textarea class="ta" id="actNotes" placeholder="Cover letter notes…"></textarea>
+      <label class="ilbl">Follow-Up Reminder</label><input class="ti" id="actFollowUp" type="date">
+      <div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button><button class="btn" onclick="finishResumeStep(event)">Log</button></div>`;}
+
+  if(type==='researchStep'){const quest=data.quest;const cc=contactsByCompany(data.coId);
+    return `<div class="ct">🔍 Research Notes</div>
+      <div class="tinfo"><div class="tin">${quest.icon} ${quest.name}</div><div class="tic">→ ${escH(data.roleName)} @ ${escH(data.coName)}</div></div>
+      <label class="ilbl">Notes *</label><textarea class="ta" id="actNotes" placeholder="Key insights, intel, org structure…" style="min-height:90px"></textarea>
+      ${cc.length?`<div class="sm">Tag NPC (optional)</div><div id="cpList" style="max-height:110px;overflow-y:auto">${cc.map(c=>`<div class="npc-card" id="cp_${c.id}" onclick="pickContact('${c.id}')"><div class="npc-name">${escH(c.name)}</div><div class="npc-meta">${escH(c.title||'')}</div></div>`).join('')}</div>`:''}
+      <div class="sm" style="margin-top:8px">Add NPC from Research (optional)</div>
+      <label class="ilbl">Name</label><input class="ti" id="nName" placeholder="Person discovered">
+      <div class="two"><div><label class="ilbl">Title</label><input class="ti" id="nTitle"></div><div><label class="ilbl">City</label><input class="ti" id="nCity"></div></div>
+      <label class="ilbl">LinkedIn</label><input class="ti" id="nLI" type="url">
+      <label class="ilbl">Email</label><input class="ti" id="nEmail" type="email">
+      <div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button><button class="btn" onclick="finishResearchStep(event)">Log</button></div>`;}
+
+  if(type==='notesStep'){const quest=data.quest;
+    return `<div class="ct">${quest.icon} ${quest.name}</div>
+      <div class="tinfo"><div class="tin">→ ${escH(data.roleName)}</div><div class="tic">${escH(data.coName)}</div></div>
+      <label class="ilbl">Notes</label><textarea class="ta" id="actNotes" placeholder="What happened…"></textarea>
+      <label class="ilbl">Follow-Up Reminder</label><input class="ti" id="actFollowUp" type="date">
+      <div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button><button class="btn" onclick="finishNotesStep(event)">Log</button></div>`;}
+
+  if(type==='attackFromRole'){const role=S.companies[data.coId]?.roles[data.roleId];const co=S.companies[data.coId];
+    return `<div class="ct">⚔️ ${escH(role?.name||'')}</div>
+      <div class="tinfo"><div class="tin">🎯 ${escH(role?.name||'')} <span class="status-badge ${STATUS_COLORS[role?.status||'active']}">${STATUS_LABELS[role?.status||'active']}</span></div>
+      <div class="tic">${escH(co?.name||'')}${role?.salary?' · 💰'+escH(role.salary):''}</div></div>
+      <div class="sm">Choose Action</div>
+      <div class="ql">${QUESTS.map(q=>`<button class="qi" onclick="questFromRole(${JSON.stringify(q).replace(/"/g,'&quot;')},'${data.coId}','${data.roleId}')">
+        <span style="font-size:18px;flex-shrink:0">${q.icon}</span>
+        <div style="flex:1"><div class="qn">${q.name}</div><div class="qd">${q.desc}</div></div>
+        <div class="qx"><span class="big">+${q.xp}XP</span><div class="gold-earn">+${q.gold}💰</div><div class="dmg">⚔${q.dmg}</div></div>
+      </button>`).join('')}</div>
+      <div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button></div>`;}
+
+  if(type==='viewLog'){const log=data.coId?S.companies[data.coId]?.actLog:(data.log?JSON.parse(data.log):[]);
+    return `<div class="ct">📋 ${escH(data.title||'Log')}</div><div class="alog">${actLogHTML(log)}</div>
+      <div class="mf"><button class="btn bgh" onclick="closeModal()">Close</button></div>`;}
+
+  if(type==='viewResumes'){const role=S.companies[data.coId]?.roles[data.roleId];if(!role)return '';
+    return `<div class="ct">📄 ${escH(role.name)}</div>
+      ${(role.resumes||[]).map(r=>`<div style="display:flex;align-items:center;gap:10px;padding:8px;border:1px solid var(--gd);border-radius:3px;margin-bottom:6px">
+        <span>📄</span><span style="flex:1;font-size:12px">${escH(r.name)}</span>
+        ${r.data?`<button class="btn bsm bgh" onclick="downloadFile('${escH(r.name)}','${r.data}')">⬇</button>`:''}
+      </div>`).join('')}
+      <div class="mf"><button class="btn bgh" onclick="closeModal()">Close</button></div>`;}
+
+  if(type==='exportData'){const csv=buildCSV();
+    return `<div class="ct">📤 Export & Import</div>
+      <div class="sm">Download Full Backup</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="btn bsm" onclick="downloadJSON()">⬇ Download JSON</button>
+        <button class="btn bgh bsm" onclick="copyFull()">Copy JSON</button>
+        <button class="btn bgh bsm" onclick="copyEl('csvOut')">Copy CSV</button>
+      </div>
+      <div class="divl"></div>
+      <div class="sm">Restore from Backup</div>
+      <p class="note" style="margin-bottom:8px">Paste a backup JSON. <strong>Overwrites all data.</strong></p>
+      <textarea class="ta" id="importJson" placeholder="Paste backup JSON…" style="min-height:80px;font-family:monospace;font-size:11px"></textarea>
+      <button class="btn bsm bred" onclick="doImport()">📥 Restore</button>
+      <div class="divl" style="margin-top:12px"></div>
+      <div class="sm">NPC CSV</div><div class="export-section" id="csvOut">${csv}</div>
+      <div class="mf"><button class="btn bsm" onclick="closeModal()">Close</button></div>`;}
+  return '';
+}
+
+// ══════════════════════════════════════════════════════════════════
+// QUEST FLOW
+// ══════════════════════════════════════════════════════════════════
+function openQuestModal(qId,preRoleId,preCoId){
+  if(preRoleId&&preCoId){_ctx={coId:preCoId,roleId:preRoleId};openModal('attackFromRole',{coId:preCoId,roleId:preRoleId});}
+  else{const quest=QUESTS.find(q=>q.id===qId);_ctx={quest,coId:null,roleId:null,contactId:null};openModal('pickRole',{quest});}
+}
+function pickRole(coId,roleId){_ctx.coId=coId;_ctx.roleId=roleId;document.querySelectorAll('.rsi').forEach(el=>el.classList.remove('sel'));const el=document.getElementById('rp_'+roleId);if(el)el.classList.add('sel');const btn=document.getElementById('rpBtn');if(btn){btn.disabled=false;btn.style.opacity='1';}}
+function proceedFromRole(){if(!_ctx.roleId)return;const co=S.companies[_ctx.coId],role=co?.roles[_ctx.roleId],quest=_ctx.quest;const coName=co?.name||'',roleName=role?.name||'';
+  if(quest.needsResume)openModal('resumeStep',{quest,coId:_ctx.coId,roleId:_ctx.roleId,roleName,coName});
+  else if(quest.hasNPC||quest.hasNotes)openModal('researchStep',{quest,coId:_ctx.coId,roleId:_ctx.roleId,roleName,coName});
+  else if(quest.needsPerson)openModal('npcStep',{quest,coId:_ctx.coId,roleId:_ctx.roleId,roleName,coName});
+  else openModal('notesStep',{quest,coId:_ctx.coId,roleId:_ctx.roleId,roleName,coName});}
+function questFromRole(quest,coId,roleId){_ctx.coId=coId;_ctx.roleId=roleId;_ctx.quest=quest;const co=S.companies[coId],role=co?.roles[roleId];const coName=co?.name||'',roleName=role?.name||'';
+  if(quest.needsResume)openModal('resumeStep',{quest,coId,roleId,roleName,coName});
+  else if(quest.hasNPC||quest.hasNotes)openModal('researchStep',{quest,coId,roleId,roleName,coName});
+  else if(quest.needsPerson)openModal('npcStep',{quest,coId,roleId,roleName,coName});
+  else openModal('notesStep',{quest,coId,roleId,roleName,coName});}
+function pickContact(cId){_ctx.contactId=cId;document.querySelectorAll('.npc-card').forEach(el=>el.classList.remove('sel'));const el=document.getElementById('cp_'+cId);if(el)el.classList.add('sel');['nName','nTitle','nCity','nLI','nEmail','nPhone','nNotes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});}
+function setRel(n){_relStrength=n;_ctx.relStrength=n;document.querySelectorAll('.rs-dot').forEach((d,i)=>d.classList.toggle('filled',i<n));const lbl=document.getElementById('relLabel');if(lbl)lbl.textContent=['','Cold','Warm','Engaged','Strong','Champion'][n]||'';}
+function saveNPCModal(){const coId=_ctx.coId||(_ctx.id&&S.contacts[_ctx.id]?.companyId)||'';const id=saveNPC(_ctx.id||null,coId);if(_ctx.id)openModal('viewNPC',{id:_ctx.id});else closeModal();}
+
+function finishNPCStep(evt){let cId=_ctx.contactId;const name=_v('nName');if(name){cId=uid();S.contacts[cId]={id:cId,name,title:_v('nTitle'),city:_v('nCity'),linkedinUrl:_v('nLI'),email:_v('nEmail'),phone:_v('nPhone'),notes:'',howMet:'',relationship:1,companyId:_ctx.coId,companyName:S.companies[_ctx.coId]?.name||'',actLog:[]};}
+  const fu=_v('actFollowUp');if(fu&&S.companies[_ctx.coId]?.roles[_ctx.roleId])S.companies[_ctx.coId].roles[_ctx.roleId].followUpDate=fu;
+  logActivity(_ctx.quest,_ctx.coId,_ctx.roleId,cId||null,null,_fv('actNotes'),evt);}
+function finishResumeStep(evt){const fu=_v('actFollowUp');if(fu&&S.companies[_ctx.coId]?.roles[_ctx.roleId])S.companies[_ctx.coId].roles[_ctx.roleId].followUpDate=fu;logActivity(_ctx.quest,_ctx.coId,_ctx.roleId,null,_pendingFile.name?_pendingFile:null,_fv('actNotes'),evt);}
+function finishResearchStep(evt){let cId=_ctx.contactId;const name=_v('nName');if(name){cId=uid();S.contacts[cId]={id:cId,name,title:_v('nTitle'),city:_v('nCity'),linkedinUrl:_v('nLI'),email:_v('nEmail'),phone:'',notes:'',howMet:'',relationship:1,companyId:_ctx.coId,companyName:S.companies[_ctx.coId]?.name||'',actLog:[]};} logActivity(_ctx.quest,_ctx.coId,_ctx.roleId,cId||null,null,_fv('actNotes'),evt);}
+function finishNotesStep(evt){const fu=_v('actFollowUp');if(fu&&S.companies[_ctx.coId]?.roles[_ctx.roleId])S.companies[_ctx.coId].roles[_ctx.roleId].followUpDate=fu;logActivity(_ctx.quest,_ctx.coId,_ctx.roleId,null,null,_fv('actNotes'),evt);}
+function openAddRoleModal(coId,coName){openModal('addRole',{coId,companyName:coName});}
+
+// ══════════════════════════════════════════════════════════════════
+// FILE HANDLING
+// ══════════════════════════════════════════════════════════════════
+function handleFileSelect(input){const file=input.files[0];if(!file)return;const reader=new FileReader();reader.onload=e=>{_pendingFile={name:file.name,data:e.target.result};const prev=document.getElementById('filePreview');if(prev)prev.innerHTML=`<div class="file-preview"><span>📄</span><span class="fp-name">${escH(file.name)}</span><span class="fp-remove" onclick="_pendingFile={name:'',data:''};document.getElementById('filePreview').innerHTML='';document.getElementById('fileInput').value=''">✕</span></div>`;};reader.readAsDataURL(file);}
+function selectResume(r){_pendingFile={name:r.name,data:r.data||''};document.querySelectorAll('.prev-file').forEach(el=>el.classList.remove('sel'));const el=document.getElementById('pf_'+r.name.replace(/\W/g,'_'));if(el)el.classList.add('sel');const prev=document.getElementById('filePreview');if(prev)prev.innerHTML=`<div class="file-preview"><span>📄</span><span class="fp-name">${escH(r.name)} (existing)</span></div>`;}
+function downloadFile(name,dataUrl){const a=document.createElement('a');a.href=dataUrl;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);}
+
+// ══════════════════════════════════════════════════════════════════
+// EXPORT / IMPORT
+// ══════════════════════════════════════════════════════════════════
+function buildCSV(){const rows=[['Name','Title','City','Company','Email','Phone','LinkedIn','How Met','Notes','Relationship','Last Contacted']];Object.values(S.contacts).forEach(c=>{const rel=['','Cold','Warm','Engaged','Strong','Champion'][c.relationship||1]||'';const last=c.lastContacted?new Date(c.lastContacted).toLocaleDateString():'';rows.push([c.name||'',c.title||'',c.city||'',c.companyName||'',c.email||'',c.phone||'',c.linkedinUrl||'',c.howMet||'',c.notes||'',rel,last]);});return rows.map(r=>r.map(f=>`"${String(f).replace(/"/g,'""')}"`).join(',')).join('\n');}
+function copyEl(id){const el=document.getElementById(id);if(el)navigator.clipboard.writeText(el.textContent).then(()=>toast('📋 Copied!'));}
+function copyFull(){navigator.clipboard.writeText(JSON.stringify(S,null,2)).then(()=>toast('📋 Copied!'));}
+function downloadJSON(){const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`jsq-backup-${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);toast('💾 Backup downloaded!');}
+function doImport(){const raw=document.getElementById('importJson')?.value?.trim();if(!raw){toast('⚠️ Paste backup JSON first.');return;}try{const parsed=JSON.parse(raw);if(!parsed.companies&&!parsed.contacts){toast('⚠️ Invalid backup.');return;}if(!confirm('Replace ALL current data?'))return;S=Object.assign({companies:{},contacts:{},gold:0,owned:[],equipped:{weapon:null,armor:null,pet:null,lodging:'tent',mount:null},goals:{weekly_apply:5,weekly_network:3,weekly_outreach:5},collapsed:{},storeCat:'all'},parsed);save();render();closeModal();toast('✅ Data restored!');}catch(e){toast('⚠️ Invalid JSON.');}}
+
+function closeModal(){document.getElementById('mOverlay').classList.remove('open');_ctx={};}
+function mOutside(e){if(e.target===document.getElementById('mOverlay'))closeModal();}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+
+// ══════════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════════
+load();
+// Migrate old saves
+if(!S.gold)S.gold=0;if(!S.owned)S.owned=[];
+if(!S.equipped)S.equipped={weapon:null,armor:null,pet:null,lodging:'tent',mount:null};
+if(!S.equipped.lodging)S.equipped.lodging='tent';
+if(!S.goals)S.goals={weekly_apply:5,weekly_network:3,weekly_outreach:5};
+if(!S.collapsed)S.collapsed={};
+if(!S.storeCat)S.storeCat='all';
+Object.values(S.companies||{}).forEach(co=>{
+  if(co.hp!==undefined&&co.dmgDealt===undefined){co.dmgDealt=Math.max(0,(co.maxHp||CO_MAX)-(co.hp||0));co.maxHp=CO_MAX;delete co.hp;}
+  if(!co.actLog)co.actLog=[];
+  Object.values(co.roles||{}).forEach(r=>{
+    if(r.hp!==undefined&&r.dmgDealt===undefined){r.dmgDealt=Math.max(0,(r.maxHp||ROLE_MAX)-(r.hp||0));r.maxHp=ROLE_MAX;delete r.hp;}
+    if(!r.actLog)r.actLog=[];if(!r.resumes)r.resumes=[];
+    if(r.resumes.length&&typeof r.resumes[0]==='string')r.resumes=r.resumes.map(n=>({name:n,data:''}));
+    if(!r.status)r.status='active';
+  });
+});
+Object.values(S.contacts||{}).forEach(c=>{if(!c.actLog)c.actLog=[];if(!c.relationship)c.relationship=1;});
+
+// Claim daily gold
+const dg=claimDailyGold();if(dg>0)setTimeout(()=>toast(`🏡 Daily income: +${dg} gold from your lodging!`),800);
+
+renderQuestList();render();
+</script>
+</body>
+</html>
