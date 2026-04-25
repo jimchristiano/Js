@@ -1045,7 +1045,7 @@ function renderReminders(){
       <button class="btn bsm bgh" onclick="dismissReminder('${r.coId}','${r.roleId}')">✓</button>
     </div>`).join('');
 }
-function dismissReminder(coId,roleId){if(S.companies[coId]?.roles[roleId])S.companies[coId].roles[roleId].followUpDate='';save();render();}
+function dismissReminder(coId,roleId){if(S.companies[coId]?.roles[roleId])S.companies[coId].roles[roleId].followUpDate='';save();render();}';save();render();}
 
 // ── Follow-Ups ────────────────────────────────────────────────────
 function allFollowUps(){
