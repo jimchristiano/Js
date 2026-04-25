@@ -233,7 +233,7 @@ body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100
 <div class="title">
   <h1>⚔ Job Search Quest ⚔</h1>
   <div class="sub">THE CHRONICLE OF EMPLOYMENT</div>
-  <div style="position:absolute;top:10px;right:14px;font-family:'Cinzel',serif;font-size:11px;color:var(--gd);opacity:.7;letter-spacing:1px">v1.3</div>
+  <div style="position:absolute;top:10px;right:14px;font-family:'Cinzel',serif;font-size:11px;color:var(--gd);opacity:.7;letter-spacing:1px">v1.4</div>
 </div>
 
 <div class="game">
@@ -1018,6 +1018,7 @@ function renderReminders(){
   });});
   reminders.sort((a,b)=>new Date(a.date)-new Date(b.date));
   const card=document.getElementById('remCard');
+  if(!card)return;
   if(!reminders.length){card.style.display='none';return;}
   card.style.display='';
   document.getElementById('remList').innerHTML=reminders.map(r=>`
