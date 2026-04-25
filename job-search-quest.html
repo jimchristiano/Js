@@ -920,8 +920,7 @@ function saveEmailOutreach(contactId,roleId,coId,evt){
   const followUp=_v('eoFollowUp');
   const taggedContactId=contactId||_v('eoContact')||'';
   const label='✉️ Email Sent';
-  const fullNote=(subject?`Subject: ${subject}
-`:'')+notes;
+  const fullNote=(subject?`Subject: ${subject}\n`:'')+notes;
   const entry={time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),questName:label,questIcon:'✉️',notes:fullNote};
   if(taggedContactId&&S.contacts[taggedContactId]){const c=S.contacts[taggedContactId];if(!c.actLog)c.actLog=[];c.actLog.unshift(entry);c.lastContacted=new Date().toISOString();if(followUp)c.followUpDate=followUp;}
   if(roleId&&coId&&S.companies[coId]?.roles[roleId]){const r=S.companies[coId].roles[roleId];if(!r.actLog)r.actLog=[];r.actLog.unshift(entry);if(followUp)r.followUpDate=followUp;}
@@ -1095,34 +1094,9 @@ function addManualFollowUp(){
 
 // ── Email Templates ───────────────────────────────────────────────
 function getTemplates(){return S.emailTemplates||(S.emailTemplates=[
-  {id:'tpl1',name:'VP Cold Outreach',subject:'Distribution Sales Leadership — Jim Christiano',body:'Hi [Name],
-
-I wanted to reach out directly rather than wait on job boards. I spent 22 years at DiVal Safety Equipment, most recently directing a $40M division with a 36-person sales force — and before that building their western territory from the ground up.
-
-I'm targeting Director-level or Senior Manager roles at large industrial distributors in [region]. If you're building out your team or know of something coming together, I'd welcome a short conversation.
-
-Best,
-Jim Christiano
-385-272-9562'},
-  {id:'tpl2',name:'Follow-Up After Interview',subject:'Thank You — [Role] Interview',body:'Hi [Name],
-
-Thank you for the time today. I enjoyed learning more about [Company] and the [Role] opportunity.
-
-Our conversation reinforced my interest — particularly [specific topic discussed]. I'm confident my background in [relevant experience] would translate directly.
-
-Looking forward to next steps.
-
-Best,
-Jim Christiano'},
-  {id:'tpl3',name:'Recruiter Outreach',subject:'[Role] — Jim Christiano',body:'Hi [Name],
-
-I came across your profile and wanted to connect. I have 22+ years in industrial/safety distribution with P&L ownership, team leadership, and a track record of consistent revenue growth.
-
-I'm actively exploring Director and Senior Manager opportunities in [region]. If you're working on anything relevant, I'd be glad to connect.
-
-Best,
-Jim Christiano
-385-272-9562'},
+  {id:'tpl1',name:'VP Cold Outreach',subject:'Distribution Sales Leadership — Jim Christiano',body:'Hi [Name],\n\nI wanted to reach out directly rather than wait on job boards. I spent 22 years at DiVal Safety Equipment, most recently directing a $40M division with a 36-person sales force — and before that building their western territory from the ground up.\n\nI\'m targeting Director-level or Senior Manager roles at large industrial distributors in [region]. If you\'re building out your team or know of something coming together, I\'d welcome a short conversation.\n\nBest,\nJim Christiano\n385-272-9562'},
+  {id:'tpl2',name:'Follow-Up After Interview',subject:'Thank You — [Role] Interview',body:'Hi [Name],\n\nThank you for the time today. I enjoyed learning more about [Company] and the [Role] opportunity.\n\nOur conversation reinforced my interest — particularly [specific topic discussed]. I\'m confident my background in [relevant experience] would translate directly.\n\nLooking forward to next steps.\n\nBest,\nJim Christiano'},
+  {id:'tpl3',name:'Recruiter Outreach',subject:'[Role] — Jim Christiano',body:'Hi [Name],\n\nI came across your profile and wanted to connect. I have 22+ years in industrial/safety distribution with P&L ownership, team leadership, and a track record of consistent revenue growth.\n\nI\'m actively exploring Director and Senior Manager opportunities in [region]. If you\'re working on anything relevant, I\'d be glad to connect.\n\nBest,\nJim Christiano\n385-272-9562'},
 ]);}
 function renderTemplates(){
   const el=document.getElementById('templateList');if(!el)return;
