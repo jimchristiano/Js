@@ -9,7 +9,7 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{--bg:#1a0f05;--p:#f5e9c8;--pd:#e8d5a0;--ink:#2a1a0a;--il:#5a3a1a;--gold:#c9a84c;--gl:#f0d080;--gd:#8a6820;--red:#8b1a1a;--green:#1a5c2a;--blue:#1a3a6c;--purple:#3a1a6c}
 body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100vh;font-family:'Crimson Text',Georgia,serif;color:var(--ink);padding:12px;display:flex;flex-direction:column;align-items:center}
-.title{text-align:center;margin-bottom:14px}
+.title{text-align:center;margin-bottom:14px;position:relative}
 .title h1{font-family:'Cinzel Decorative',serif;font-size:clamp(1.1rem,4vw,1.8rem);color:var(--gl);text-shadow:0 0 20px rgba(201,168,76,.5),2px 2px 4px #000;letter-spacing:2px}
 .title .sub{font-family:'Cinzel',serif;color:var(--gold);font-size:10px;letter-spacing:4px;margin-top:3px;opacity:.8}
 .game{width:100%;max-width:940px;display:flex;flex-direction:column;gap:12px}
@@ -229,9 +229,11 @@ body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100
 </head>
 <body>
 <div id="toast"></div>
+<div id="jsTooltip"></div>
 <div class="title">
   <h1>⚔ Job Search Quest ⚔</h1>
   <div class="sub">THE CHRONICLE OF EMPLOYMENT</div>
+  <div style="position:absolute;top:10px;right:14px;font-family:'Cinzel',serif;font-size:11px;color:var(--gd);opacity:.7;letter-spacing:1px">v1.0</div>
 </div>
 
 <div class="game">
@@ -264,29 +266,52 @@ body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100
     <div class="equipped-strip" id="equippedStrip"></div>
   </div>
 
-  <!-- OneDrive Sync -->
-  <div class="card" id="syncCard">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-      <div class="ct" style="margin:0;border:none;padding:0">☁️ OneDrive Sync</div>
-      <button class="btn bsm bgh" data-tip="Collapse sync panel" onclick="toggleEl('syncPanel')">▲</button>
-    </div>
-    <div id="syncPanel"></div>
-  </div>
-
   <!-- Pipeline -->
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
       <div class="ct" style="margin:0;border:none;padding:0">📊 Pipeline</div>
-      <button class="btn bsm bgh" onclick="openModal('editGoals')">🎯 Goals</button>
+      <button class="btn bsm bgh" data-tip="Set weekly application &amp; outreach goals" onclick="openModal('editGoals')">🎯 Goals</button>
     </div>
     <div class="pipeline" id="pipeline"></div>
     <div class="goals-row" id="goalsRow"></div>
   </div>
 
-  <!-- Reminders -->
-  <div class="card" id="remCard" style="display:none">
-    <div class="ct">⏰ Follow-Up Reminders</div>
-    <div id="remList"></div>
+  <!-- Follow-Ups -->
+  <div class="card" id="followUpCard">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <div class="ct" style="margin:0;border:none;padding:0">⏰ Follow-Ups</div>
+      <div style="display:flex;gap:6px">
+        <select class="filter-select" id="fuFilter" onchange="renderFollowUps()" style="font-size:11px;padding:4px 8px">
+          <option value="due">Due &amp; Overdue</option>
+          <option value="all">All Upcoming</option>
+        </select>
+        <button class="btn bsm bgh" data-tip="Add a manual follow-up reminder" onclick="openModal('addFollowUp')">+ Add</button>
+      </div>
+    </div>
+    <div id="followUpList"><div class="empty" style="padding:12px 0;font-size:13px">No follow-ups due.</div></div>
+  </div>
+
+  <!-- Boss Arena -->
+  <div class="card">
+    <div class="ah">
+      <div class="ct" style="margin:0;border:none;padding:0">🏰 Boss Arena</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn bsm bgh" data-tip="Backup or restore your save data" onclick="openModal('exportData')">📤 Export / Import</button>
+        <button class="btn bsm" data-tip="Add a standalone NPC not tied to a role" onclick="openModal('editNPC',{})">+ NPC</button>
+        <button class="btn bsm" data-tip="Add a new target company to siege" onclick="openModal('addCompany')">+ Company</button>
+      </div>
+    </div>
+    <div class="search-bar">
+      <input class="search-input" id="searchInput" placeholder="🔍 Search…" oninput="renderArena()">
+      <select class="filter-select" id="filterStatus" onchange="renderArena()">
+        <option value="">All Statuses</option>
+        <option value="active">Active</option><option value="applied">Applied</option>
+        <option value="interviewing">Interviewing</option><option value="offer">Offer</option>
+        <option value="rejected">Rejected</option><option value="withdrawn">Withdrawn</option>
+        <option value="closed">Closed</option>
+      </select>
+    </div>
+    <div id="arena"><div class="empty">No targets yet.</div></div>
   </div>
 
   <!-- Quest Log + Chronicle -->
@@ -316,32 +341,28 @@ body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100
     <div class="store-grid" id="storeGrid"></div>
   </div>
 
-  <!-- Boss Arena -->
-  <div class="card">
-    <div class="ah">
-      <div class="ct" style="margin:0;border:none;padding:0">🏰 Boss Arena</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn bsm bgh" onclick="openModal('exportData')">📤 Export / Import</button>
-        <button class="btn bsm" onclick="openModal('addCompany')">+ Add Company</button>
-      </div>
-    </div>
-    <div class="search-bar">
-      <input class="search-input" id="searchInput" placeholder="🔍 Search…" oninput="renderArena()">
-      <select class="filter-select" id="filterStatus" onchange="renderArena()">
-        <option value="">All Statuses</option>
-        <option value="active">Active</option><option value="applied">Applied</option>
-        <option value="interviewing">Interviewing</option><option value="offer">Offer</option>
-        <option value="rejected">Rejected</option><option value="withdrawn">Withdrawn</option>
-        <option value="closed">Closed</option>
-      </select>
-    </div>
-    <div id="arena"><div class="empty">No targets yet.</div></div>
-  </div>
-
   <!-- Achievements -->
   <div class="card">
     <div class="ct">🏆 Achievements & Honors</div>
     <div class="ag" id="achGrid"></div>
+  </div>
+
+  <!-- Email Templates -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <div class="ct" style="margin:0;border:none;padding:0">✉️ Email Templates</div>
+      <button class="btn bsm" data-tip="Add a new email template" onclick="openModal('addTemplate')">+ Template</button>
+    </div>
+    <div id="templateList"></div>
+  </div>
+
+  <!-- OneDrive Sync -->
+  <div class="card" id="syncCard">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <div class="ct" style="margin:0;border:none;padding:0">☁️ OneDrive Sync</div>
+      <button class="btn bsm bgh" data-tip="Collapse sync panel" onclick="toggleEl('syncPanel')">▲</button>
+    </div>
+    <div id="syncPanel"></div>
   </div>
 </div>
 
@@ -878,6 +899,37 @@ function purchaseItem(itemId,evt){
 function addCompany(){const name=_v('coName'),url=_v('coUrl');if(!name)return;const id=uid();S.companies[id]={id,name,careersUrl:url,dmgDealt:0,maxHp:CO_MAX,roles:{},actLog:[]};save();render();closeModal();toast(`🏢 ${name} added!`);}
 async function addRole(coId){const name=_v('rName'),city=_v('rCity'),state=_v('rState'),url=_v('rUrl'),salary=_v('rSalary'),deadline=_v('rDeadline'),followUp=_v('rFollowUp');if(!name)return;const id=uid();const role={id,name,location:`${city}${city&&state?', ':''}${state}`,url,salary,deadline,followUpDate:followUp,status:'active',dmgDealt:0,maxHp:ROLE_MAX,description:'',importStatus:'',resumes:[],actLog:[]};S.companies[coId].roles[id]=role;save();render();closeModal();toast(`🎯 ${name} added!`);if(url)importRole(coId,id,url);}
 function updateRole(coId,roleId){const role=S.companies[coId]?.roles[roleId];if(!role)return;role.name=_v('rName')||role.name;const c=_v('rCity'),st=_v('rState');role.location=`${c}${c&&st?', ':''}${st}`;role.url=_v('rUrl');role.salary=_v('rSalary');role.deadline=_v('rDeadline');role.followUpDate=_v('rFollowUp');role.status=_v('rStatus')||role.status;save();render();closeModal();toast(`✏️ Updated!`);}
+function savePhoneOutreach(contactId,roleId,coId,evt){
+  const notes=_fv('poNotes').trim();
+  const leftVM=document.getElementById('poVM')?.checked||false;
+  const followUp=_v('poFollowUp');
+  const taggedContactId=contactId||_v('poContact')||'';
+  const label=leftVM?'📞 Called (VM left)':'📞 Called';
+  const fullNote=notes+(leftVM?' [Voicemail left]':'');
+  const entry={time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),questName:label,questIcon:'📞',notes:fullNote};
+  if(taggedContactId&&S.contacts[taggedContactId]){const c=S.contacts[taggedContactId];if(!c.actLog)c.actLog=[];c.actLog.unshift(entry);c.lastContacted=new Date().toISOString();if(followUp)c.followUpDate=followUp;}
+  if(roleId&&coId&&S.companies[coId]?.roles[roleId]){const r=S.companies[coId].roles[roleId];if(!r.actLog)r.actLog=[];r.actLog.unshift(entry);if(followUp)r.followUpDate=followUp;}
+  const logCoId=coId||(taggedContactId&&S.contacts[taggedContactId]?.companyId)||null;
+  const q={xp:30,gold:15,dmg:50,name:label,icon:'📞',id:'phone_out'};
+  logActivity(q,logCoId||null,roleId||null,taggedContactId||null,null,fullNote,evt);
+  save();render();closeModal();toast(`${label} logged!`);
+}
+function saveEmailOutreach(contactId,roleId,coId,evt){
+  const subject=_fv('eoSubject').trim();
+  const notes=_fv('eoNotes').trim();
+  const followUp=_v('eoFollowUp');
+  const taggedContactId=contactId||_v('eoContact')||'';
+  const label='✉️ Email Sent';
+  const fullNote=(subject?`Subject: ${subject}
+`:'')+notes;
+  const entry={time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),questName:label,questIcon:'✉️',notes:fullNote};
+  if(taggedContactId&&S.contacts[taggedContactId]){const c=S.contacts[taggedContactId];if(!c.actLog)c.actLog=[];c.actLog.unshift(entry);c.lastContacted=new Date().toISOString();if(followUp)c.followUpDate=followUp;}
+  if(roleId&&coId&&S.companies[coId]?.roles[roleId]){const r=S.companies[coId].roles[roleId];if(!r.actLog)r.actLog=[];r.actLog.unshift(entry);if(followUp)r.followUpDate=followUp;}
+  const logCoId=coId||(taggedContactId&&S.contacts[taggedContactId]?.companyId)||null;
+  const q={xp:30,gold:15,dmg:50,name:label,icon:'✉️',id:'email_out'};
+  logActivity(q,logCoId||null,roleId||null,taggedContactId||null,null,fullNote,evt);
+  save();render();closeModal();toast('✉️ Email logged!');
+}
 async function importRole(coId,roleId,url){const role=S.companies[coId]?.roles[roleId];if(!role)return;role.importStatus='loading';save();render();try{const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,tools:[{type:'web_search_20250305',name:'web_search'}],messages:[{role:'user',content:`Search for and summarize the job posting at: ${url}\nExtract: 1) Role summary 2) Key responsibilities 3) Required qualifications 4) Preferred qualifications 5) Location/salary.\nFormat as plain text, clear section labels, under 500 words.`}]})});const data=await resp.json();let text='';if(data.content)data.content.forEach(b=>{if(b.type==='text')text+=b.text;});role.description=text.trim()||`Job posting: ${url}`;role.importStatus='done';}catch(e){role.description=`Job posting: ${url}\n(Auto-import failed.)`;role.importStatus='error';}save();render();toast(`📄 Role imported!`);}
 function saveNPC(existingId,coId){const name=_v('nName');if(!name)return null;const id=existingId||uid();const prev=existingId&&S.contacts[existingId]||{};S.contacts[id]={...prev,id,name,title:_v('nTitle'),city:_v('nCity'),linkedinUrl:_v('nLI'),email:_v('nEmail'),phone:_v('nPhone'),notes:_v('nNotes'),howMet:_v('nHowMet'),relationship:_ctx.relStrength||prev.relationship||1,companyId:coId||prev.companyId,companyName:S.companies[coId||prev.companyId]?.name||prev.companyName||''};if(!S.contacts[id].actLog)S.contacts[id].actLog=[];save();render();return id;}
 function saveGoals(){S.goals={weekly_apply:parseInt(_v('gApply'))||5,weekly_network:parseInt(_v('gNetwork'))||3,weekly_outreach:parseInt(_v('gOutreach'))||5};save();render();closeModal();toast('🎯 Goals saved!');}
@@ -913,7 +965,7 @@ function render(){
   document.getElementById('equippedStrip').innerHTML=equippedItems.map(i=>
     `<div class="eq-item"><span class="ei">${i.icon}</span><span class="en">${i.name}</span></div>`).join('');
 
-  renderPipeline();renderGoals();renderReminders();
+  renderPipeline();renderGoals();renderReminders();renderFollowUps();renderTemplates();
   renderDots();renderLog();renderArena();renderStore();renderAch();
 }
 
@@ -923,9 +975,15 @@ function renderPipeline(){
     {key:'active',l:'Active',dot:'#6699ff'},{key:'applied',l:'Applied',dot:'#c9a84c'},
     {key:'interviewing',l:'Interview',dot:'#ff9966'},{key:'offer',l:'Offer',dot:'#66cc77'},
     {key:'rejected',l:'Rejected',dot:'#888'}
-  ].map(i=>`<div class="pipe-col"><div class="pipe-count">${c[i.key]||0}</div>
+  ].map(i=>`<div class="pipe-col" onclick="filterArenaByStatus('${i.key}')" style="cursor:pointer" title="Show ${i.l} roles">
+    <div class="pipe-count" style="color:${i.dot};text-decoration:underline dotted;text-underline-offset:3px">${c[i.key]||0}</div>
     <span class="pipe-dot" style="background:${i.dot}"></span>
     <div class="pipe-label">${i.l}</div></div>`).join('');
+}
+function filterArenaByStatus(status){
+  const sel=document.getElementById('filterStatus');
+  if(sel){const cur=sel.value;sel.value=cur===status?'':status;renderArena();}
+  document.getElementById('arena')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function pipelineCounts(){const c={active:0,applied:0,interviewing:0,offer:0,rejected:0,withdrawn:0,closed:0};Object.values(S.companies).forEach(co=>{Object.values(co.roles||{}).forEach(r=>{c[r.status||'active']=(c[r.status||'active']||0)+1;});});return c;}
 
@@ -972,6 +1030,132 @@ function renderReminders(){
     </div>`).join('');
 }
 function dismissReminder(coId,roleId){if(S.companies[coId]?.roles[roleId])S.companies[coId].roles[roleId].followUpDate='';save();render();}
+
+// ── Follow-Ups ────────────────────────────────────────────────────
+function allFollowUps(){
+  const today=new Date();today.setHours(23,59,59,999);
+  const future=new Date();future.setFullYear(future.getFullYear()+1);
+  const filter=document.getElementById('fuFilter')?.value||'due';
+  const items=[];
+  // Roles
+  Object.values(S.companies).forEach(co=>{Object.values(co.roles||{}).forEach(r=>{
+    if(r.followUpDate){const d=new Date(r.followUpDate);const overdue=d<new Date();
+      if(filter==='due'&&d<=today)items.push({type:'role',label:escH(r.name),sub:'🏢 '+escH(co.name),date:r.followUpDate,overdue,coId:co.id,roleId:r.id,contactId:null});
+      else if(filter==='all'&&d<=future)items.push({type:'role',label:escH(r.name),sub:'🏢 '+escH(co.name),date:r.followUpDate,overdue,coId:co.id,roleId:r.id,contactId:null});
+    }
+  });});
+  // Contacts
+  Object.values(S.contacts).forEach(c=>{
+    if(c.followUpDate){const d=new Date(c.followUpDate);const overdue=d<new Date();
+      if(filter==='due'&&d<=today)items.push({type:'contact',label:escH(c.name),sub:escH(c.title||'')+(c.companyName?' @ '+escH(c.companyName):''),date:c.followUpDate,overdue,coId:c.companyId||null,roleId:null,contactId:c.id});
+      else if(filter==='all'&&d<=future)items.push({type:'contact',label:escH(c.name),sub:escH(c.title||'')+(c.companyName?' @ '+escH(c.companyName):''),date:c.followUpDate,overdue,coId:c.companyId||null,roleId:null,contactId:c.id});
+    }
+  });
+  // Manual follow-ups
+  (S.followUps||[]).forEach(fu=>{const d=new Date(fu.date);const overdue=d<new Date();
+    if(filter==='due'&&d<=today)items.push({type:'manual',label:escH(fu.label),sub:escH(fu.notes||''),date:fu.date,overdue,fuId:fu.id,coId:null,roleId:null,contactId:null});
+    else if(filter==='all'&&d<=future)items.push({type:'manual',label:escH(fu.label),sub:escH(fu.notes||''),date:fu.date,overdue,fuId:fu.id,coId:null,roleId:null,contactId:null});
+  });
+  items.sort((a,b)=>new Date(a.date)-new Date(b.date));
+  return items;
+}
+function renderFollowUps(){
+  const items=allFollowUps();
+  const el=document.getElementById('followUpList');if(!el)return;
+  if(!items.length){el.innerHTML='<div class="empty" style="padding:12px 0;font-size:13px">No follow-ups due.</div>';return;}
+  el.innerHTML=items.map(r=>`
+    <div class="reminder-item ${r.overdue?'overdue':''}">
+      <div class="rem-date ${r.overdue?'overdue':''}">${new Date(r.date).toLocaleDateString([],{month:'short',day:'numeric'})}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;color:var(--ink);font-weight:600">${r.label}</div>
+        ${r.sub?`<div style="font-size:11px;color:var(--il)">${r.sub}</div>`:''}
+      </div>
+      <div style="display:flex;gap:5px;flex-shrink:0">
+        ${r.type==='role'?`<button class="btn bsm bgh" data-tip="Log an action" onclick="openQuestModal(null,'${r.roleId}','${r.coId}')">⚔</button>`:''}
+        ${r.type==='contact'?`<button class="btn bsm bgh" data-tip="Log call" onclick="openModal('phoneOutreach',{contactId:'${r.contactId}'})">📞</button>`:''}
+        ${r.type==='contact'?`<button class="btn bsm bgh" data-tip="Log email" onclick="openModal('emailOutreach',{contactId:'${r.contactId}'})">✉️</button>`:''}
+        <button class="btn bsm bgh" data-tip="Mark done" onclick="dismissFollowUp(${JSON.stringify(r).replace(/"/g,'&quot;')})">✓</button>
+      </div>
+    </div>`).join('');
+}
+function dismissFollowUp(r){
+  if(r.type==='role'&&S.companies[r.coId]?.roles[r.roleId])S.companies[r.coId].roles[r.roleId].followUpDate='';
+  else if(r.type==='contact'&&S.contacts[r.contactId])S.contacts[r.contactId].followUpDate='';
+  else if(r.type==='manual'){S.followUps=(S.followUps||[]).filter(f=>f.id!==r.fuId);}
+  save();render();
+}
+function addManualFollowUp(){
+  const label=_v('fuLabel');if(!label)return;
+  const date=_v('fuDate');if(!date)return;
+  if(!S.followUps)S.followUps=[];
+  S.followUps.push({id:uid(),label,date,notes:_v('fuNotes')});
+  save();render();closeModal();toast('⏰ Follow-up added!');
+}
+
+// ── Email Templates ───────────────────────────────────────────────
+function getTemplates(){return S.emailTemplates||(S.emailTemplates=[
+  {id:'tpl1',name:'VP Cold Outreach',subject:'Distribution Sales Leadership — Jim Christiano',body:'Hi [Name],
+
+I wanted to reach out directly rather than wait on job boards. I spent 22 years at DiVal Safety Equipment, most recently directing a $40M division with a 36-person sales force — and before that building their western territory from the ground up.
+
+I'm targeting Director-level or Senior Manager roles at large industrial distributors in [region]. If you're building out your team or know of something coming together, I'd welcome a short conversation.
+
+Best,
+Jim Christiano
+385-272-9562'},
+  {id:'tpl2',name:'Follow-Up After Interview',subject:'Thank You — [Role] Interview',body:'Hi [Name],
+
+Thank you for the time today. I enjoyed learning more about [Company] and the [Role] opportunity.
+
+Our conversation reinforced my interest — particularly [specific topic discussed]. I'm confident my background in [relevant experience] would translate directly.
+
+Looking forward to next steps.
+
+Best,
+Jim Christiano'},
+  {id:'tpl3',name:'Recruiter Outreach',subject:'[Role] — Jim Christiano',body:'Hi [Name],
+
+I came across your profile and wanted to connect. I have 22+ years in industrial/safety distribution with P&L ownership, team leadership, and a track record of consistent revenue growth.
+
+I'm actively exploring Director and Senior Manager opportunities in [region]. If you're working on anything relevant, I'd be glad to connect.
+
+Best,
+Jim Christiano
+385-272-9562'},
+]);}
+function renderTemplates(){
+  const el=document.getElementById('templateList');if(!el)return;
+  const tpls=getTemplates();
+  if(!tpls.length){el.innerHTML='<div class="empty" style="font-size:13px;padding:12px 0">No templates yet.</div>';return;}
+  el.innerHTML=tpls.map(t=>`
+    <div style="border:1px solid rgba(138,104,32,.3);border-radius:4px;padding:12px;margin-bottom:10px;background:rgba(42,26,10,.04)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px;flex-wrap:wrap">
+        <div style="font-family:'Cinzel',serif;font-size:13px;font-weight:700;color:var(--ink)">${escH(t.name)}</div>
+        <div style="display:flex;gap:5px">
+          <button class="btn bsm bgh" data-tip="Copy to clipboard" onclick="copyTemplate('${t.id}',this)">📋 Copy</button>
+          <button class="btn bsm bgh" data-tip="Edit template" onclick="openModal('editTemplate',{id:'${t.id}'})">✏️</button>
+          <button class="btn bsm bgh" data-tip="Delete template" onclick="deleteTemplate('${t.id}')">🗑</button>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--gd);margin-bottom:5px;font-family:'Cinzel',serif">Subject: ${escH(t.subject)}</div>
+      <div style="font-size:12px;color:var(--il);white-space:pre-wrap;max-height:80px;overflow:hidden;line-height:1.5">${escH(t.body.slice(0,200))}${t.body.length>200?'…':''}</div>
+    </div>`).join('');
+}
+function copyTemplate(id,btn){
+  const t=getTemplates().find(x=>x.id===id);if(!t)return;
+  const full=`Subject: ${t.subject}
+
+${t.body}`;
+  navigator.clipboard.writeText(full).then(()=>{const orig=btn.textContent;btn.textContent='✓ Copied!';setTimeout(()=>btn.textContent=orig,1500);}).catch(()=>{toast('Could not copy — try long-pressing the text');});
+}
+function deleteTemplate(id){if(!confirm('Delete this template?'))return;S.emailTemplates=(S.emailTemplates||[]).filter(t=>t.id!==id);save();renderTemplates();}
+function saveTemplate(existingId){
+  const name=_v('tplName');if(!name)return;
+  const tpls=getTemplates();
+  if(existingId){const t=tpls.find(x=>x.id===existingId);if(t){t.name=name;t.subject=_v('tplSubject');t.body=_fv('tplBody');}}
+  else{tpls.push({id:uid(),name,subject:_v('tplSubject'),body:_fv('tplBody')});}
+  S.emailTemplates=tpls;save();renderTemplates();closeModal();toast('✉️ Template saved!');
+}
 
 function renderDots(){document.getElementById('wDots').innerHTML=DAYS.map((d,i)=>`<div class="dd"><div class="dot ${S.weekActivity[i]?'on':''}">${S.weekActivity[i]?'✓':''}</div><div class="dlbl">${d}</div></div>`).join('');}
 function renderLog(){const el=document.getElementById('logEl');el.innerHTML=S.log.length?S.log.map(e=>`<div class="lentry"><span class="lt">${e.time} </span>${e.msg}</div>`).join(''):'<div class="lentry"><span class="lt">START </span>No activity yet.</div>';}
@@ -1036,7 +1220,11 @@ function renderArena(){
           return `<div class="${cc}" onclick="openModal('viewNPC',{id:'${c.id}'})"><span>👤</span>
             <div><div class="nc-name">${escH(c.name)}</div>
             <div class="nc-title">${escH(c.title||'')}${c.city?' · '+escH(c.city):''}</div>
-            <div style="font-size:10px">${'●'.repeat(rel)}${'○'.repeat(5-rel)}</div></div></div>`;}).join('')}
+            <div style="font-size:11px">${'●'.repeat(rel)}${'○'.repeat(5-rel)}</div>
+            <div style="display:flex;gap:4px;margin-top:5px" onclick="event.stopPropagation()">
+              <button class="btn bsm bgh" title="Log phone call" style="font-size:10px;padding:2px 7px" onclick="openModal('phoneOutreach',{contactId:'${c.id}'})">📞</button>
+              <button class="btn bsm bgh" title="Log email" style="font-size:10px;padding:2px 7px" onclick="openModal('emailOutreach',{contactId:'${c.id}'})">✉️</button>
+            </div></div></div>`;}).join('')}
         <div class="npc-chip" onclick="openModal('editNPC',{coId:'${co.id}'})"><span>➕</span><div><div class="nc-name">Add NPC</div></div></div>
       </div></div>`;
 
@@ -1063,9 +1251,11 @@ function renderArena(){
                 ${r.url?`<a href="${r.url}" target="_blank" class="clink">🔗</a>`:''}
                 ${r.description?`<button class="btn bsm bgh" style="padding:3px 8px;font-size:10px" onclick="toggleEl('${dId}')">📄</button>`:''}
                 ${r.importStatus==='loading'?`<span><span class="spin"></span></span>`:''}
-                <button class="btn bsm bgh" style="padding:3px 8px;font-size:10px" onclick="openModal('viewLog',{log:JSON.stringify((S.companies['${co.id}']||{roles:{}}).roles['${r.id}']?.actLog||[]),title:'${escH(r.name)}'})">📋</button>
-                ${r.resumes&&r.resumes.length?`<button class="btn bsm bgh" style="padding:3px 8px;font-size:10px" onclick="openModal('viewResumes',{coId:'${co.id}',roleId:'${r.id}'})">📄${r.resumes.length}</button>`:''}
-                <button class="btn bsm bgh" style="padding:3px 8px;font-size:10px" onclick="openModal('editRole',{coId:'${co.id}',roleId:'${r.id}'})">✏️</button>
+                <button class="btn bsm bgh" title="View activity log" style="padding:3px 8px;font-size:11px" onclick="openModal('viewLog',{log:JSON.stringify((S.companies['${co.id}']||{roles:{}}).roles['${r.id}']?.actLog||[]),title:'${escH(r.name)}'})">📋</button>
+                ${r.resumes&&r.resumes.length?`<button class="btn bsm bgh" title="View submitted resumes" style="padding:3px 8px;font-size:11px" onclick="openModal('viewResumes',{coId:'${co.id}',roleId:'${r.id}'})">📄${r.resumes.length}</button>`:''}
+                <button class="btn bsm bgh" title="Edit this role" style="padding:3px 8px;font-size:11px" onclick="openModal('editRole',{coId:'${co.id}',roleId:'${r.id}'})">✏️</button>
+                <button class="btn bsm bgh" title="Log phone call for this role" style="padding:3px 8px;font-size:11px" onclick="openModal('phoneOutreach',{roleId:'${r.id}',coId:'${co.id}'})">📞</button>
+                <button class="btn bsm bgh" title="Log email for this role" style="padding:3px 8px;font-size:11px" onclick="openModal('emailOutreach',{roleId:'${r.id}',coId:'${co.id}'})">✉️</button>
               </div>
             </div>
             <button class="btn bsm bred" style="margin-left:4px;flex-shrink:0" onclick="openQuestModal(null,'${r.id}','${co.id}')">⚔</button>
@@ -1086,8 +1276,10 @@ function renderArena(){
             ${lastHit?`<div style="font-size:9px;color:#777;margin-top:2px">${lastHit}</div>`:''}
           </div>
           <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0" onclick="event.stopPropagation()">
-            <button class="btn bsm bgh" onclick="openAddRoleModal('${co.id}','${escH(co.name)}')">+ Role</button>
-            <button class="btn bsm bgh" style="font-size:10px" onclick="openModal('viewLog',{coId:'${co.id}',title:'${escH(co.name)}'})">📋 Log</button>
+            <button class="btn bsm bgh" title="Add a new role at this company" onclick="openAddRoleModal('${co.id}','${escH(co.name)}')">+ Role</button>
+            <button class="btn bsm bgh" title="Log phone outreach" onclick="openModal('phoneOutreach',{coId:'${co.id}'})">📞</button>
+            <button class="btn bsm bgh" title="Log email outreach" onclick="openModal('emailOutreach',{coId:'${co.id}'})">✉️</button>
+            <button class="btn bsm bgh" title="View activity log" style="font-size:11px" onclick="openModal('viewLog',{coId:'${co.id}',title:'${escH(co.name)}'})">📋 Log</button>
           </div>
         </div>
       </div>
@@ -1202,6 +1394,65 @@ function buildModal(type,data){
       <div class="mf"><button class="btn bgh" onclick="${data.id?`openModal('viewNPC',{id:'${data.id}'})`:'closeModal()'}">Cancel</button>
       <button class="btn" onclick="saveNPCModal()">Save</button></div>`;
   }
+
+  if(type==='phoneOutreach'){
+    const c=data.contactId?S.contacts[data.contactId]:null;
+    const role=data.roleId&&data.coId?S.companies[data.coId]?.roles[data.roleId]:null;
+    const co=data.coId?S.companies[data.coId]:null;
+    const target=c?`${escH(c.name)}${c.companyName?' @ '+escH(c.companyName):''}`:role?`${escH(role.name)} @ ${escH(co?.name||'')}`:co?escH(co?.name||''):'';
+    const allContacts=Object.values(S.contacts).filter(ct=>!data.coId||ct.companyId===data.coId);
+    return `<div class="ct">📞 Phone Outreach</div>
+      <div class="tinfo"><div class="tin">📞 ${target||'Phone Call'}</div></div>
+      ${c?.phone?`<div style="margin-bottom:10px;padding:8px 12px;background:rgba(42,26,10,.08);border-radius:6px;font-size:13px"><a href="tel:${c.phone}" style="color:var(--gold)">${escH(c.phone)}</a></div>`:''}
+      ${!data.contactId&&allContacts.length?`<label class="ilbl">Tag a Person (optional)</label>
+      <select class="sel-input" id="poContact"><option value="">— None —</option>${allContacts.map(ct=>`<option value="${ct.id}">${escH(ct.name)}${ct.title?' — '+escH(ct.title):''}</option>`).join('')}</select>`:''}
+      <label class="ilbl">Notes</label>
+      <textarea class="ta" id="poNotes" placeholder="What was discussed, outcome, next steps…" style="min-height:80px" autofocus></textarea>
+      <div style="display:flex;align-items:center;gap:10px;margin:10px 0;padding:10px 12px;background:rgba(42,26,10,.06);border-radius:6px">
+        <input type="checkbox" id="poVM" style="accent-color:var(--gold);width:16px;height:16px">
+        <label for="poVM" style="font-size:14px;color:var(--il);cursor:pointer">Left voicemail</label>
+      </div>
+      <label class="ilbl">Follow-Up Date</label><input class="ti" id="poFollowUp" type="date">
+      <div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button>
+      <button class="btn" onclick="savePhoneOutreach('${data.contactId||''}','${data.roleId||''}','${data.coId||''}',event)">Log Call</button></div>`;}
+
+  if(type==='emailOutreach'){
+    const c=data.contactId?S.contacts[data.contactId]:null;
+    const role=data.roleId&&data.coId?S.companies[data.coId]?.roles[data.roleId]:null;
+    const co=data.coId?S.companies[data.coId]:null;
+    const target=c?`${escH(c.name)}${c.companyName?' @ '+escH(c.companyName):''}`:role?`${escH(role.name)} @ ${escH(co?.name||'')}`:co?escH(co?.name||''):'';
+    const allContacts=Object.values(S.contacts).filter(ct=>!data.coId||ct.companyId===data.coId);
+    return `<div class="ct">✉️ Email Outreach</div>
+      <div class="tinfo"><div class="tin">✉️ ${target||'Email'}</div></div>
+      ${c?.email?`<div style="margin-bottom:10px;padding:8px 12px;background:rgba(42,26,10,.08);border-radius:6px;font-size:13px"><a href="mailto:${c.email}" style="color:var(--gold)">${escH(c.email)}</a></div>`:''}
+      ${!data.contactId&&allContacts.length?`<label class="ilbl">Tag a Person (optional)</label>
+      <select class="sel-input" id="eoContact"><option value="">— None —</option>${allContacts.map(ct=>`<option value="${ct.id}">${escH(ct.name)}${ct.title?' — '+escH(ct.title):''}</option>`).join('')}</select>`:''}
+      <label class="ilbl">Subject</label>
+      <input class="ti" id="eoSubject" placeholder="Email subject line" autofocus>
+      <label class="ilbl">Notes</label>
+      <textarea class="ta" id="eoNotes" placeholder="Summary, key points, response expected…" style="min-height:80px"></textarea>
+      <label class="ilbl">Follow-Up Date</label><input class="ti" id="eoFollowUp" type="date">
+      <div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button>
+      <button class="btn" onclick="saveEmailOutreach('${data.contactId||''}','${data.roleId||''}','${data.coId||''}',event)">Log Email</button></div>`;}
+
+  if(type==='addFollowUp') return `<div class="ct">⏰ Add Follow-Up</div>
+    <label class="ilbl">Label *</label><input class="ti" id="fuLabel" placeholder="e.g. Call Tracey Hughes" autofocus>
+    <label class="ilbl">Date *</label><input class="ti" id="fuDate" type="date">
+    <label class="ilbl">Notes</label><textarea class="ta" id="fuNotes" placeholder="Context or reminder…"></textarea>
+    <div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button><button class="btn" onclick="addManualFollowUp()">Add</button></div>`;
+
+  if(type==='addTemplate') return `<div class="ct">✉️ New Email Template</div>
+    <label class="ilbl">Template Name *</label><input class="ti" id="tplName" placeholder="e.g. VP Cold Outreach" autofocus>
+    <label class="ilbl">Subject Line</label><input class="ti" id="tplSubject" placeholder="Email subject">
+    <label class="ilbl">Body</label><textarea class="ta" id="tplBody" placeholder="Use [Name], [Company], [Role] as placeholders…" style="min-height:160px"></textarea>
+    <div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button><button class="btn" onclick="saveTemplate('')">Save</button></div>`;
+
+  if(type==='editTemplate'){const t=getTemplates().find(x=>x.id===data.id);if(!t)return '';
+    return `<div class="ct">✏️ Edit Template</div>
+    <label class="ilbl">Template Name</label><input class="ti" id="tplName" value="${escH(t.name)}">
+    <label class="ilbl">Subject Line</label><input class="ti" id="tplSubject" value="${escH(t.subject)}">
+    <label class="ilbl">Body</label><textarea class="ta" id="tplBody" style="min-height:160px">${escH(t.body)}</textarea>
+    <div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button><button class="btn" onclick="saveTemplate('${data.id}')">Save</button></div>`;}
 
   if(type==='addCompany') return `<div class="ct">🏢 Add Target Company</div>
     <label class="ilbl">Company Name *</label><input class="ti" id="coName" autofocus>
@@ -1393,7 +1644,7 @@ if(!S.equipped)S.equipped={weapon:null,armor:null,pet:null,lodging:'tent',mount:
 if(!S.equipped.lodging)S.equipped.lodging='tent';
 if(!S.goals)S.goals={weekly_apply:5,weekly_network:3,weekly_outreach:5};
 if(!S.collapsed)S.collapsed={};
-if(!S.storeCat)S.storeCat='all';
+if(!S.storeCat)S.storeCat='all';if(!S.followUps)S.followUps=[];if(!S.emailTemplates)S.emailTemplates=null;
 Object.values(S.companies||{}).forEach(co=>{
   if(co.hp!==undefined&&co.dmgDealt===undefined){co.dmgDealt=Math.max(0,(co.maxHp||CO_MAX)-(co.hp||0));co.maxHp=CO_MAX;delete co.hp;}
   if(!co.actLog)co.actLog=[];
@@ -1430,6 +1681,31 @@ if(MSFT.enabled){
     renderQuestList();render();
   });
 } else {
+
+// ── JS Tooltips (Chrome iOS compatible) ──────────────────────────
+(function(){
+  const tip=document.getElementById('jsTooltip');
+  let hideTimer;
+  document.addEventListener('pointerover',e=>{
+    const el=e.target.closest('[data-tip],[title]');
+    if(!el)return;
+    const txt=el.getAttribute('data-tip')||el.getAttribute('title');
+    if(!txt)return;
+    if(el.hasAttribute('title'))el.setAttribute('data-tip',txt);
+    clearTimeout(hideTimer);
+    tip.textContent=txt;tip.style.display='block';
+    const r=el.getBoundingClientRect();
+    let left=r.left+r.width/2-tip.offsetWidth/2;
+    let top=r.top-tip.offsetHeight-8+window.scrollY;
+    left=Math.max(6,Math.min(left,window.innerWidth-tip.offsetWidth-6));
+    if(top<window.scrollY+4)top=r.bottom+8+window.scrollY;
+    tip.style.left=left+'px';tip.style.top=top+'px';
+  });
+  document.addEventListener('pointerout',e=>{
+    hideTimer=setTimeout(()=>{tip.style.display='none';},120);
+  });
+  document.addEventListener('pointerdown',()=>{tip.style.display='none';});
+})();
   renderQuestList();render();
 }
 </script>
