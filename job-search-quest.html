@@ -489,7 +489,7 @@ function load(){try{const r=localStorage.getItem(SK);if(r)S=Object.assign({compa
 // ══════════════════════════════════════════════════════════════════
 const MSFT={
   clientId:'',
-  scopes:'Files.ReadWrite offline_access User.Read',
+  scopes:'Files.ReadWrite User.Read offline_access',
   redirectUri:window.location.href.split('?')[0].split('#')[0],
   token:null,
   enabled:false,
@@ -497,28 +497,80 @@ const MSFT={
   fileName:'job-search-quest-save.json',
   fileId:null,
 
+  // PKCE helpers
+  async genVerifier(){const arr=new Uint8Array(32);crypto.getRandomValues(arr);return btoa(String.fromCharCode(...arr)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');},
+  async genChallenge(v){const enc=new TextEncoder().encode(v);const hash=await crypto.subtle.digest('SHA-256',enc);return btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');},
+
   init(){
     const cfg=localStorage.getItem('jsq_msft');
     if(cfg){const c=JSON.parse(cfg);this.clientId=c.clientId||'';this.token=c.token||null;this.fileId=c.fileId||null;this.enabled=!!(this.clientId&&this.token);}
-    // Handle OAuth redirect
-    if(window.location.hash.includes('access_token')){
-      const params=new URLSearchParams(window.location.hash.slice(1));
-      const tok=params.get('access_token');
-      if(tok){this.token=tok;this.enabled=!!this.clientId;this.saveConfig();window.history.replaceState(null,'',window.location.pathname);setTimeout(()=>{toast('✅ Microsoft signed in! Syncing…');this.syncDown().then(()=>render());},300);}
+    // Handle PKCE auth code redirect
+    const urlParams=new URLSearchParams(window.location.search);
+    const code=urlParams.get('code');
+    if(code){
+      const verifier=localStorage.getItem('jsq_pkce_verifier');
+      const savedClientId=localStorage.getItem('jsq_pkce_clientid');
+      if(verifier&&savedClientId){
+        window.history.replaceState(null,'',window.location.pathname);
+        this.clientId=savedClientId;
+        this.exchangeCode(code,verifier);
+      }
     }
   },
 
   saveConfig(){localStorage.setItem('jsq_msft',JSON.stringify({clientId:this.clientId,token:this.token,fileId:this.fileId}));},
 
-  signIn(){
+  async signIn(){
     if(!this.clientId){toast('⚠️ Enter your Client ID first');return;}
+    const verifier=await this.genVerifier();
+    const challenge=await this.genChallenge(verifier);
+    localStorage.setItem('jsq_pkce_verifier',verifier);
+    localStorage.setItem('jsq_pkce_clientid',this.clientId);
     const url=`https://login.microsoftonline.com/common/oauth2/v2.0/authorize`+
       `?client_id=${encodeURIComponent(this.clientId)}`+
-      `&response_type=token`+
+      `&response_type=code`+
       `&redirect_uri=${encodeURIComponent(this.redirectUri)}`+
       `&scope=${encodeURIComponent(this.scopes)}`+
-      `&response_mode=fragment`;
+      `&code_challenge=${challenge}`+
+      `&code_challenge_method=S256`+
+      `&response_mode=query`;
     window.location.href=url;
+  },
+
+  async exchangeCode(code,verifier){
+    try{
+      const body=new URLSearchParams({
+        client_id:this.clientId,code,
+        redirect_uri:this.redirectUri,
+        grant_type:'authorization_code',
+        code_verifier:verifier
+      });
+      const resp=await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token',{
+        method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body
+      });
+      const data=await resp.json();
+      if(data.access_token){
+        this.token=data.access_token;
+        if(data.refresh_token)localStorage.setItem('jsq_refresh',data.refresh_token);
+        this.enabled=true;this.saveConfig();
+        localStorage.removeItem('jsq_pkce_verifier');localStorage.removeItem('jsq_pkce_clientid');
+        setTimeout(()=>{toast('✅ Microsoft connected! Syncing…');this.syncDown().then(()=>render());renderSyncPanel();},200);
+      } else {
+        toast('⚠️ Sign-in failed: '+(data.error_description||data.error||'unknown'));
+      }
+    }catch(e){toast('⚠️ Sign-in error: '+e.message);}
+  },
+
+  async refreshToken(){
+    const rt=localStorage.getItem('jsq_refresh');
+    if(!rt||!this.clientId)return false;
+    try{
+      const body=new URLSearchParams({client_id:this.clientId,grant_type:'refresh_token',refresh_token:rt,scope:this.scopes});
+      const resp=await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body});
+      const data=await resp.json();
+      if(data.access_token){this.token=data.access_token;if(data.refresh_token)localStorage.setItem('jsq_refresh',data.refresh_token);this.saveConfig();return true;}
+    }catch(e){}
+    return false;
   },
 
   signOut(){this.token=null;this.enabled=false;this.fileId=null;this.saveConfig();toast('👋 Signed out of Microsoft');renderSyncPanel();},
@@ -530,7 +582,7 @@ const MSFT={
         method,headers:{'Authorization':`Bearer ${this.token}`,'Content-Type':'application/json'},
         body:body?JSON.stringify(body):undefined
       });
-      if(resp.status===401){this.token=null;this.enabled=false;this.saveConfig();toast('⚠️ Microsoft session expired — please sign in again');renderSyncPanel();return null;}
+      if(resp.status===401){const refreshed=await this.refreshToken();if(refreshed)return this.apiCall(method,path,body);this.token=null;this.enabled=false;this.saveConfig();toast('⚠️ Microsoft session expired — please sign in again');renderSyncPanel();return null;}
       if(!resp.ok)return null;
       const ct=resp.headers.get('content-type')||'';
       return ct.includes('json')?await resp.json():await resp.text();
