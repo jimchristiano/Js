@@ -233,7 +233,7 @@ body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100
 <div class="title">
   <h1>⚔ Job Search Quest ⚔</h1>
   <div class="sub">THE CHRONICLE OF EMPLOYMENT</div>
-  <div style="position:absolute;top:10px;right:14px;font-family:'Cinzel',serif;font-size:11px;color:var(--gd);opacity:.7;letter-spacing:1px">v1.1</div>
+  <div style="position:absolute;top:10px;right:14px;font-family:'Cinzel',serif;font-size:11px;color:var(--gd);opacity:.7;letter-spacing:1px">v1.2</div>
 </div>
 
 <div class="game">
@@ -362,7 +362,7 @@ body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100
       <div class="ct" style="margin:0;border:none;padding:0">☁️ OneDrive Sync</div>
       <button class="btn bsm bgh" data-tip="Toggle sync panel" onclick="toggleEl('syncPanel')">☁️</button>
     </div>
-    <div id="syncPanel"></div>
+    <div id="syncPanel" style="display:block"></div>
   </div>
 </div>
 
@@ -1291,7 +1291,7 @@ function renderArena(){
 }
 
 function toggleCollapse(coId){S.collapsed=S.collapsed||{};S.collapsed[coId]=!S.collapsed[coId];save();renderArena();}
-function toggleEl(id){const el=document.getElementById(id);if(!el)return;el.style.display=el.style.display==='none'?'':'none';}
+function toggleEl(id){const el=document.getElementById(id);if(!el)return;el.style.display=el.style.display==='none'?'block':'none';}
 
 function renderAch(){
   document.getElementById('achGrid').innerHTML=ACHIEVEMENTS.map(a=>`
@@ -1660,13 +1660,38 @@ Object.values(S.contacts||{}).forEach(c=>{if(!c.actLog)c.actLog=[];if(!c.relatio
 // Claim daily gold
 const dg=claimDailyGold();if(dg>0)setTimeout(()=>toast(`🏡 Daily income: +${dg} gold from your lodging!`),800);
 
-// OneDrive sync init
+// ── JS Tooltips (Chrome iOS compatible) ──────────────────────────
+(function(){
+  const tip=document.getElementById('jsTooltip');
+  let hideTimer;
+  document.addEventListener('pointerover',e=>{
+    const el=e.target.closest('[data-tip],[title]');
+    if(!el)return;
+    const txt=el.getAttribute('data-tip')||el.getAttribute('title');
+    if(!txt)return;
+    clearTimeout(hideTimer);
+    tip.textContent=txt;tip.style.display='block';
+    const r=el.getBoundingClientRect();
+    let left=r.left+r.width/2-tip.offsetWidth/2;
+    let top=r.top-tip.offsetHeight-8+window.scrollY;
+    left=Math.max(6,Math.min(left,window.innerWidth-tip.offsetWidth-6));
+    if(top<window.scrollY+4)top=r.bottom+8+window.scrollY;
+    tip.style.left=left+'px';tip.style.top=top+'px';
+  });
+  document.addEventListener('pointerout',()=>{hideTimer=setTimeout(()=>{tip.style.display='none';},120);});
+  document.addEventListener('pointerdown',()=>{tip.style.display='none';});
+})();
+
+// ── OneDrive sync init ────────────────────────────────────────────
 MSFT.init();
-renderSyncPanel();
+// renderSyncPanel called after DOM settle
+setTimeout(()=>renderSyncPanel(),0);
+
+function startApp(){renderQuestList();render();}
+
 if(MSFT.enabled){
   MSFT.syncDown().then(synced=>{
     if(synced){
-      // Re-run migrations on synced data
       if(!S.gold)S.gold=0;if(!S.owned)S.owned=[];
       if(!S.equipped)S.equipped={weapon:null,armor:null,pet:null,lodging:'tent',mount:null};
       if(!S.equipped.lodging)S.equipped.lodging='tent';
@@ -1678,35 +1703,10 @@ if(MSFT.enabled){
       });
       Object.values(S.contacts||{}).forEach(c=>{if(!c.actLog)c.actLog=[];if(!c.relationship)c.relationship=1;});
     }
-    renderQuestList();render();
+    startApp();
   });
 } else {
-
-// ── JS Tooltips (Chrome iOS compatible) ──────────────────────────
-(function(){
-  const tip=document.getElementById('jsTooltip');
-  let hideTimer;
-  document.addEventListener('pointerover',e=>{
-    const el=e.target.closest('[data-tip],[title]');
-    if(!el)return;
-    const txt=el.getAttribute('data-tip')||el.getAttribute('title');
-    if(!txt)return;
-    if(el.hasAttribute('title'))el.setAttribute('data-tip',txt);
-    clearTimeout(hideTimer);
-    tip.textContent=txt;tip.style.display='block';
-    const r=el.getBoundingClientRect();
-    let left=r.left+r.width/2-tip.offsetWidth/2;
-    let top=r.top-tip.offsetHeight-8+window.scrollY;
-    left=Math.max(6,Math.min(left,window.innerWidth-tip.offsetWidth-6));
-    if(top<window.scrollY+4)top=r.bottom+8+window.scrollY;
-    tip.style.left=left+'px';tip.style.top=top+'px';
-  });
-  document.addEventListener('pointerout',e=>{
-    hideTimer=setTimeout(()=>{tip.style.display='none';},120);
-  });
-  document.addEventListener('pointerdown',()=>{tip.style.display='none';});
-})();
-  renderQuestList();render();
+  startApp();
 }
 </script>
 </body>
