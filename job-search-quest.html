@@ -1104,8 +1104,8 @@ function renderReminders(){
   });});
   reminders.sort((a,b)=>new Date(a.date)-new Date(b.date));
   const card=document.getElementById('remCard');
-  if(!reminders.length){card.style.display='none';return;}
-  card.style.display='';
+  if(!reminders.length){if(card)card.style.display='none';return;}
+  if(card)card.style.display='';
   document.getElementById('remList').innerHTML=reminders.map(r=>`
     <div class="reminder-item ${r.overdue?'overdue':''}">
       <div class="rem-date ${r.overdue?'overdue':''}">${new Date(r.date).toLocaleDateString([],{month:'short',day:'numeric'})}</div>
@@ -1772,5 +1772,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:12px 0 6px;font-family:'Cinzel',serif;font-size:11px;color:#8a5500;opacity:.7;letter-spacing:2px">v2.5</div>
+<div style="text-align:center;padding:12px 0 6px;font-family:'Cinzel',serif;font-size:11px;color:#8a5500;opacity:.7;letter-spacing:2px">v2.6</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
