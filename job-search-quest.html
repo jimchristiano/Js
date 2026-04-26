@@ -250,7 +250,6 @@ body{background:radial-gradient(ellipse at top,#2a1400 0%,#100800 100%);min-heig
 <div class="title">
   <h1>⚔ Job Search Quest ⚔</h1>
   <div class="sub">THE CHRONICLE OF EMPLOYMENT</div>
-  <div style="position:absolute;top:10px;right:14px;font-family:&#39;Cinzel&#39;,serif;font-size:11px;color:var(--gd);opacity:.7;letter-spacing:1px">v2.1</div>
 </div>
 
 <div class="game">
@@ -937,7 +936,7 @@ function saveEmailOutreach(contactId,roleId,coId,evt){
   const followUp=_v('eoFollowUp');
   const taggedContactId=contactId||_v('eoContact')||'';
   const label='✉️ Email Sent';
-  const fullNote=(subject?`Subject: ${subject}\n`:''+notes;
+  const fullNote=(subject?`Subject: ${subject}\n`:'')+ notes;
   const entry={time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),questName:label,questIcon:'✉️',notes:fullNote};
   if(taggedContactId&&S.contacts[taggedContactId]){const c=S.contacts[taggedContactId];if(!c.actLog)c.actLog=[];c.actLog.unshift(entry);c.lastContacted=new Date().toISOString();if(followUp)c.followUpDate=followUp;}
   if(roleId&&coId&&S.companies[coId]?.roles[roleId]){const r=S.companies[coId].roles[roleId];if(!r.actLog)r.actLog=[];r.actLog.unshift(entry);if(followUp)r.followUpDate=followUp;}
@@ -1702,4 +1701,5 @@ if(MSFT.enabled){
 </script>
 
 
+<div style="text-align:center;padding:12px 0 6px;font-family:'Cinzel',serif;font-size:11px;color:#8a5500;opacity:.7;letter-spacing:2px">v2.3</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
