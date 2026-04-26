@@ -7,30 +7,13 @@
 <link href="./Job Search Questonline_files/css2" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-:root{
-  --bg:#100800;
-  --p:#f5d890;
-  --pd:#e8c050;
-  --ink:#3a1800;
-  --il:#6b3500;
-  --gold:#c8860a;
-  --gl:#ffd040;
-  --gd:#8a5500;
-  --red:#c0392b;
-  --green:#1a7a30;
-  --blue:#1a4a8a;
-  --purple:#1a3a6c;
-  --card-border:3px solid #8a5500;
-  --card-shadow:0 4px 16px rgba(0,0,0,.3);
-  --btn-primary:linear-gradient(180deg,#f0a800 0%,#c07000 100%);
-  --btn-primary-border:#7a4000;
-}
-body{background:radial-gradient(ellipse at top,#2a1400 0%,#100800 100%);min-height:100vh;font-family:'Crimson Text',Georgia,serif;color:var(--ink);padding:12px;display:flex;flex-direction:column;align-items:center}
+:root{--bg:#1a0f05;--p:#fdf6e3;--pd:#ede0b8;--ink:#3a2510;--il:#6b4a28;--gold:#c9a84c;--gl:#f0d080;--gd:#7a5a18;--red:#8b1a1a;--green:#1a5c2a;--blue:#1a3a6c;--purple:#3a1a6c}
+body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100vh;font-family:'Crimson Text',Georgia,serif;color:var(--ink);padding:12px;display:flex;flex-direction:column;align-items:center}
 .title{text-align:center;margin-bottom:14px;position:relative}
 .title h1{font-family:'Cinzel Decorative',serif;font-size:clamp(1.1rem,4vw,1.8rem);color:var(--gl);text-shadow:0 0 20px rgba(201,168,76,.5),2px 2px 4px #000;letter-spacing:2px}
 .title .sub{font-family:'Cinzel',serif;color:var(--gold);font-size:10px;letter-spacing:4px;margin-top:3px;opacity:.8}
 .game{width:100%;max-width:940px;display:flex;flex-direction:column;gap:12px}
-.card{background:linear-gradient(180deg,#f5d890 0%,#e8c050 60%,#d4a030 100%);border:3px solid #8a5500;border-radius:8px;padding:14px;box-shadow:0 6px 24px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,240,150,.5)}
+.card{background:var(--p);border:2px solid var(--gd);border-radius:4px;padding:14px;box-shadow:0 4px 20px rgba(0,0,0,.5)}
   .ct{font-family:'Cinzel',serif;font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--gd);border-bottom:1px solid var(--gd);padding-bottom:6px;margin-bottom:10px;font-weight:700}
 /* Hero */
 .hero-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
@@ -250,6 +233,7 @@ body{background:radial-gradient(ellipse at top,#2a1400 0%,#100800 100%);min-heig
 <div class="title">
   <h1>⚔ Job Search Quest ⚔</h1>
   <div class="sub">THE CHRONICLE OF EMPLOYMENT</div>
+  
 </div>
 
 <div class="game">
@@ -660,85 +644,25 @@ const MSFT={
       if(!resp.ok)return false;
       const text=await resp.text();if(!text||text==='{}'||text.length<10)return false;
       const remote=JSON.parse(text);
-
-      // Smart merge: combine companies and contacts from both sources,
-      // keeping the version with more activity for each record
-      const merged=Object.assign({
-        companies:{},contacts:{},gold:0,owned:[],
-        equipped:{weapon:null,armor:null,pet:null,lodging:'tent',mount:null},
-        goals:{weekly_apply:5,weekly_network:3,weekly_outreach:5},
-        collapsed:{},dailyGoldClaimed:null,storeCat:'all'
-      }, remote);
-
-      // Merge companies - keep whichever has more damage dealt
-      const allCoIds=new Set([...Object.keys(S.companies||{}),...Object.keys(remote.companies||{})]);
-      allCoIds.forEach(coId=>{
-        const local=S.companies?.[coId];
-        const rem=remote.companies?.[coId];
-        if(local&&rem){
-          // Keep the one with more activity, but merge roles
-          const base=(local.dmgDealt||0)>=(rem.dmgDealt||0)?local:rem;
-          const other=(local.dmgDealt||0)>=(rem.dmgDealt||0)?rem:local;
-          // Merge roles
-          const allRoleIds=new Set([...Object.keys(local.roles||{}),...Object.keys(rem.roles||{})]);
-          base.roles=base.roles||{};
-          allRoleIds.forEach(rId=>{
-            const lr=local.roles?.[rId];const rr=rem.roles?.[rId];
-            if(lr&&rr) base.roles[rId]=(lr.dmgDealt||0)>=(rr.dmgDealt||0)?lr:rr;
-            else base.roles[rId]=lr||rr;
-          });
-          // Merge actLog (combine and deduplicate by time)
-          const allLogs=[...(base.actLog||[]),...(other.actLog||[])];
-          const seen=new Set();
-          base.actLog=allLogs.filter(e=>{const k=e.time+e.questName;if(seen.has(k))return false;seen.add(k);return true;}).slice(0,50);
-          merged.companies[coId]=base;
-        } else {
-          merged.companies[coId]=local||rem;
-        }
-      });
-
-      // Merge contacts - keep whichever has more relationship strength
-      const allCtIds=new Set([...Object.keys(S.contacts||{}),...Object.keys(remote.contacts||{})]);
-      allCtIds.forEach(ctId=>{
-        const local=S.contacts?.[ctId];
-        const rem=remote.contacts?.[ctId];
-        if(local&&rem){
-          const base=(local.relationship||1)>=(rem.relationship||1)?local:rem;
-          merged.contacts[ctId]=base;
-        } else {
-          merged.contacts[ctId]=local||rem;
-        }
-      });
-
-      // Take higher values for XP, gold, level, streak
-      merged.xp=Math.max(S.xp||0,remote.xp||0);
-      merged.level=Math.max(S.level||1,remote.level||1);
-      merged.gold=Math.max(S.gold||0,remote.gold||0);
-      merged.streak=Math.max(S.streak||0,remote.streak||0);
+      // Smart merge
+      const merged=Object.assign({companies:{},contacts:{},gold:0,owned:[],equipped:{weapon:null,armor:null,pet:null,lodging:'tent',mount:null},goals:{weekly_apply:5,weekly_network:3,weekly_outreach:5},collapsed:{},dailyGoldClaimed:null,storeCat:'all'},remote);
+      new Set([...Object.keys(S.companies||{}),...Object.keys(remote.companies||{})]).forEach(function(id){
+        const lc=S.companies&&S.companies[id],rc=remote.companies&&remote.companies[id];
+        if(lc&&rc){const base=(lc.dmgDealt||0)>=(rc.dmgDealt||0)?lc:rc,other=(lc.dmgDealt||0)>=(rc.dmgDealt||0)?rc:lc;
+          new Set([...Object.keys(lc.roles||{}),...Object.keys(rc.roles||{})]).forEach(function(rId){
+            const lr=lc.roles&&lc.roles[rId],rr=rc.roles&&rc.roles[rId];
+            base.roles=base.roles||{};base.roles[rId]=(lr&&rr)?((lr.dmgDealt||0)>=(rr.dmgDealt||0)?lr:rr):(lr||rr);});
+          merged.companies[id]=base;}else merged.companies[id]=lc||rc;});
+      new Set([...Object.keys(S.contacts||{}),...Object.keys(remote.contacts||{})]).forEach(function(id){
+        const lc=S.contacts&&S.contacts[id],rc=remote.contacts&&remote.contacts[id];
+        merged.contacts[id]=(lc&&rc)?((lc.relationship||1)>=(rc.relationship||1)?lc:rc):(lc||rc);});
+      merged.xp=Math.max(S.xp||0,remote.xp||0);merged.level=Math.max(S.level||1,remote.level||1);
+      merged.gold=Math.max(S.gold||0,remote.gold||0);merged.streak=Math.max(S.streak||0,remote.streak||0);
       merged.totalActions=Math.max(S.totalActions||0,remote.totalActions||0);
-
-      // Merge owned items (union)
       merged.owned=[...new Set([...(S.owned||[]),...(remote.owned||[])])];
-
-      // Keep equipped from whichever has higher level
-      if((S.level||1)>=(remote.level||1)) merged.equipped=S.equipped||merged.equipped;
-
-      // Merge achievements
-      merged.achievements={...(remote.achievements||{}),...(S.achievements||{})};
-
-      // Merge logs (combine recent from both)
-      const allLogs=[...(S.log||[]),...(remote.log||[])];
-      const seen=new Set();
-      merged.log=allLogs.filter(e=>{const k=(e.time||'')+(e.questName||'');if(seen.has(k))return false;seen.add(k);return true;}).slice(0,60);
-
-      const hadChanges=Object.keys(merged.companies).length>Object.keys(S.companies||{}).length||
-                       Object.keys(merged.contacts).length>Object.keys(S.contacts||{}).length||
-                       merged.totalActions>S.totalActions;
-
-      S=merged;
-      save();
-      if(hadChanges)toast('☁️ Synced & merged from OneDrive');
-      return true;
+      merged.achievements=Object.assign({},(remote.achievements||{}),(S.achievements||{}));
+      const seen=new Set();merged.log=[...(S.log||[]),...(remote.log||[])].filter(function(e){const k=(e.time||'')+(e.questName||'');return seen.has(k)?false:(seen.add(k),true);}).slice(0,60);
+      S=merged;save();toast('☁️ Synced from OneDrive');return true;
     }catch(e){return false;}
   },
 
@@ -1007,7 +931,8 @@ function saveEmailOutreach(contactId,roleId,coId,evt){
   const followUp=_v('eoFollowUp');
   const taggedContactId=contactId||_v('eoContact')||'';
   const label='✉️ Email Sent';
-  const fullNote=(subject?`Subject: ${subject}\n`:'')+ notes;
+  const fullNote=(subject?`Subject: ${subject}
+`:'')+notes;
   const entry={time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),questName:label,questIcon:'✉️',notes:fullNote};
   if(taggedContactId&&S.contacts[taggedContactId]){const c=S.contacts[taggedContactId];if(!c.actLog)c.actLog=[];c.actLog.unshift(entry);c.lastContacted=new Date().toISOString();if(followUp)c.followUpDate=followUp;}
   if(roleId&&coId&&S.companies[coId]?.roles[roleId]){const r=S.companies[coId].roles[roleId];if(!r.actLog)r.actLog=[];r.actLog.unshift(entry);if(followUp)r.followUpDate=followUp;}
@@ -1097,15 +1022,16 @@ function weekCounts(){
 }
 
 function renderReminders(){
+  const card=document.getElementById('remCard');
+  if(!card)return;
   const today=new Date();today.setHours(23,59,59,999);
   const reminders=[];
   Object.values(S.companies).forEach(co=>{Object.values(co.roles||{}).forEach(r=>{
     if(r.followUpDate){const d=new Date(r.followUpDate);if(d<=today)reminders.push({coId:co.id,coName:co.name,roleId:r.id,roleName:r.name,date:r.followUpDate,overdue:d<new Date()});}
   });});
   reminders.sort((a,b)=>new Date(a.date)-new Date(b.date));
-  const card=document.getElementById('remCard');
-  if(!reminders.length){if(card)card.style.display='none';return;}
-  if(card)card.style.display='';
+  if(!reminders.length){card.style.display='none';return;}
+  card.style.display='';
   document.getElementById('remList').innerHTML=reminders.map(r=>`
     <div class="reminder-item ${r.overdue?'overdue':''}">
       <div class="rem-date ${r.overdue?'overdue':''}">${new Date(r.date).toLocaleDateString([],{month:'short',day:'numeric'})}</div>
@@ -1149,72 +1075,48 @@ function renderFollowUps(){
   const items=allFollowUps();
   const el=document.getElementById('followUpList');if(!el)return;
   if(!items.length){el.innerHTML='<div class="empty" style="padding:12px 0;font-size:13px">No follow-ups due.</div>';return;}
-  el.innerHTML=items.map(r=>{
-    const dateStr=new Date(r.date).toLocaleDateString([],{month:'short',day:'numeric'});
-    const linkedContact=r.type==='contact'?r.contactId:(r.contactId||null);
-    const linkedCoId=r.coId||null;
-    const linkedRoleId=r.roleId||null;
-    const subParts=[];
-    if(r.roleName)subParts.push('\uD83C\uDFAF '+r.roleName);
-    if(r.coName)subParts.push('\uD83C\uDFE2 '+r.coName);
-    if(r.contactName)subParts.push('\uD83D\uDC64 '+r.contactName);
-    const sub=subParts.join(' · ');
-    const overdueClass=r.overdue?'overdue':'';
-    let btns='';
-    if(linkedRoleId&&linkedCoId)btns+='<button class="btn bsm bgh" title="Log action" onclick="openQuestModal(null,\''+linkedRoleId+'\',\''+linkedCoId+'\')">\u2694</button>';
-    if(linkedContact)btns+='<button class="btn bsm bgh" title="Log call" onclick="openModal(\'phoneOutreach\',{contactId:\''+linkedContact+'\'})">\uD83D\uDCDE</button>';
-    if(linkedContact)btns+='<button class="btn bsm bgh" title="Log email" onclick="openModal(\'emailOutreach\',{contactId:\''+linkedContact+'\'})">\u2709\uFE0F</button>';
-    if(linkedCoId&&!linkedRoleId&&!linkedContact)btns+='<button class="btn bsm bgh" title="Log outreach" onclick="openModal(\'phoneOutreach\',{coId:\''+linkedCoId+'\'})">\uD83D\uDCDE</button>';
-    const dismissData=JSON.stringify(r).replace(/"/g,'&quot;');
-    btns+='<button class="btn bsm bgh" title="Mark done" onclick="dismissFollowUp('+dismissData+')">\u2713</button>';
-    return '<div class="reminder-item '+overdueClass+'">'
-      +'<div class="rem-date '+overdueClass+'">'+dateStr+'</div>'
-      +'<div style="flex:1;min-width:0">'
-      +'<div style="font-size:13px;color:var(--ink);font-weight:600">'+escH(r.label)+'</div>'
-      +(sub?'<div style="font-size:11px;color:var(--il)">'+escH(sub)+'</div>':'')
-      +(r.notes?'<div style="font-size:11px;color:var(--il);font-style:italic">'+escH(r.notes)+'</div>':'')
-      +'</div>'
-      +'<div style="display:flex;gap:5px;flex-shrink:0">'+btns+'</div>'
-      +'</div>';
-  }).join('');
+  el.innerHTML=items.map(r=>`
+    <div class="reminder-item ${r.overdue?'overdue':''}">
+      <div class="rem-date ${r.overdue?'overdue':''}">${new Date(r.date).toLocaleDateString([],{month:'short',day:'numeric'})}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;color:var(--ink);font-weight:600">${r.label}</div>
+        ${r.sub?`<div style="font-size:11px;color:var(--il)">${r.sub}</div>`:''}
+      </div>
+      <div style="display:flex;gap:5px;flex-shrink:0">
+        ${r.type==='role'?`<button class="btn bsm bgh" data-tip="Log an action" onclick="openQuestModal(null,'${r.roleId}','${r.coId}')">⚔</button>`:''}
+        ${r.type==='contact'?`<button class="btn bsm bgh" data-tip="Log call" onclick="openModal('phoneOutreach',{contactId:'${r.contactId}'})">📞</button>`:''}
+        ${r.type==='contact'?`<button class="btn bsm bgh" data-tip="Log email" onclick="openModal('emailOutreach',{contactId:'${r.contactId}'})">✉️</button>`:''}
+        <button class="btn bsm bgh" data-tip="Mark done" onclick="dismissFollowUp(${JSON.stringify(r).replace(/"/g,'&quot;')})">✓</button>
+      </div>
+    </div>`).join('');
 }
 function dismissFollowUp(r){
   if(r.type==='role'&&S.companies[r.coId]?.roles[r.roleId])S.companies[r.coId].roles[r.roleId].followUpDate='';
   else if(r.type==='contact'&&S.contacts[r.contactId])S.contacts[r.contactId].followUpDate='';
   else if(r.type==='manual'){S.followUps=(S.followUps||[]).filter(f=>f.id!==r.fuId);}
-  // Also clear linked entity follow-up dates if set
-  if(r.type==='manual'){
-    if(r.roleId&&r.coId&&S.companies[r.coId]?.roles[r.roleId])S.companies[r.coId].roles[r.roleId].followUpDate='';
-    if(r.contactId&&S.contacts[r.contactId])S.contacts[r.contactId].followUpDate='';
-  }
   save();render();
 }
+function fuContactChanged(cId){
+  var c=S.contacts[cId];if(!c)return;
+  var coSel=document.getElementById('fuCoId');
+  if(coSel&&c.companyId){coSel.value=c.companyId;fuCoChanged(c.companyId);}
+}
+function fuCoChanged(coId){
+  var sel=document.getElementById('fuRoleId');if(!sel)return;
+  var roles=coId&&S.companies[coId]?Object.values(S.companies[coId].roles||{}):[]; 
+  sel.innerHTML='<option value="">— None —</option>'+roles.map(function(r){return '<option value="'+r.id+'">'+escH(r.name)+'</option>';}).join('');
+}
 function addManualFollowUp(){
-  const label=_v('fuLabel');if(!label)return;
-  const date=_v('fuDate');if(!date)return;
+  var label=_v('fuLabel');if(!label)return;
+  var date=_v('fuDate');if(!date)return;
   if(!S.followUps)S.followUps=[];
-  const contactId=_v('fuContactId')||'';
-  const coId=_v('fuCoId')||'';
-  const roleId=_v('fuRoleId')||'';
-  const contact=contactId&&S.contacts[contactId];
-  const co=coId&&S.companies[coId];
-  const role=roleId&&coId&&S.companies[coId]?.roles[roleId];
-  S.followUps.push({id:uid(),label,date,notes:_v('fuNotes'),
-    contactId:contactId||null,contactName:contact?.name||'',
-    coId:coId||null,coName:co?.name||'',
-    roleId:roleId||null,roleName:role?.name||''});
+  var cId=_v('fuContactId')||'';var coId=_v('fuCoId')||'';var rId=_v('fuRoleId')||'';
+  var co=coId&&S.companies[coId];var ct=cId&&S.contacts[cId];var ro=rId&&coId&&S.companies[coId]&&S.companies[coId].roles[rId];
+  S.followUps.push({id:uid(),label:label,date:date,notes:_v('fuNotes'),
+    contactId:cId||null,contactName:ct&&ct.name||'',
+    coId:coId||null,coName:co&&co.name||'',
+    roleId:rId||null,roleName:ro&&ro.name||''});
   save();render();closeModal();toast('⏰ Follow-up added!');
-}
-function updateFuCompanyFromContact(contactId){
-  const c=S.contacts[contactId];if(!c)return;
-  const coSel=document.getElementById('fuCoId');
-  if(coSel&&c.companyId){coSel.value=c.companyId;updateFuRolesFromCompany(c.companyId);}
-}
-function updateFuRolesFromCompany(coId){
-  const roleSel=document.getElementById('fuRoleId');if(!roleSel)return;
-  const roles=coId&&S.companies[coId]?Object.values(S.companies[coId].roles||{]):[];
-  roleSel.innerHTML='<option value="">— None —</option>'+
-    roles.map(r=>`<option value="${r.id}">${escH(r.name)}</option>`).join('');
 }
 
 // ── Email Templates ───────────────────────────────────────────────
@@ -1536,27 +1438,18 @@ function buildModal(type,data){
       <button class="btn" onclick="saveEmailOutreach('${data.contactId||''}','${data.roleId||''}','${data.coId||''}',event)">Log Email</button></div>`;}
 
   if(type==='addFollowUp'){
-    const allCos=Object.values(S.companies).sort((a,b)=>a.name.localeCompare(b.name));
-    const allContacts=Object.values(S.contacts).sort((a,b)=>a.name.localeCompare(b.name));
-    return `<div class="ct">⏰ Add Follow-Up</div>
-    <label class="ilbl">Label *</label><input class="ti" id="fuLabel" placeholder="e.g. Call Tracey Hughes" autofocus>
-    <label class="ilbl">Date *</label><input class="ti" id="fuDate" type="date">
-    <label class="ilbl">Link to Person (optional)</label>
-    <select class="sel-input" id="fuContactId" onchange="updateFuCompanyFromContact(this.value)">
-      <option value="">— None —</option>
-      ${allContacts.map(c=>`<option value="${c.id}">${escH(c.name)}${c.companyName?' @ '+escH(c.companyName):''}</option>`).join('')}
-    </select>
-    <label class="ilbl">Link to Company (optional)</label>
-    <select class="sel-input" id="fuCoId" onchange="updateFuRolesFromCompany(this.value)">
-      <option value="">— None —</option>
-      ${allCos.map(c=>`<option value="${c.id}">${escH(c.name)}</option>`).join('')}
-    </select>
-    <label class="ilbl">Link to Role (optional)</label>
-    <select class="sel-input" id="fuRoleId">
-      <option value="">— None —</option>
-    </select>
-    <label class="ilbl">Notes</label><textarea class="ta" id="fuNotes" placeholder="Context or reminder…"></textarea>
-    <div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button><button class="btn" onclick="addManualFollowUp()">Add</button></div>`;}
+    var fuCos=Object.values(S.companies).sort(function(a,b){return a.name.localeCompare(b.name);});
+    var fuCts=Object.values(S.contacts).sort(function(a,b){return a.name.localeCompare(b.name);});
+    var coOpts='<option value="">— None —</option>'+fuCos.map(function(c){return '<option value="'+c.id+'">'+escH(c.name)+'</option>';}).join('');
+    var ctOpts='<option value="">— None —</option>'+fuCts.map(function(c){return '<option value="'+c.id+'">'+escH(c.name)+(c.companyName?' @ '+escH(c.companyName):'')+' </option>';}).join('');
+    return '<div class="ct">⏰ Add Follow-Up</div>'
+      +'<label class="ilbl">Label *</label><input class="ti" id="fuLabel" placeholder="e.g. Call Tracey Hughes" autofocus>'
+      +'<label class="ilbl">Date *</label><input class="ti" id="fuDate" type="date">'
+      +'<label class="ilbl">Person (optional)</label><select class="sel-input" id="fuContactId" onchange="fuContactChanged(this.value)">'+ctOpts+'</select>'
+      +'<label class="ilbl">Company (optional)</label><select class="sel-input" id="fuCoId" onchange="fuCoChanged(this.value)">'+coOpts+'</select>'
+      +'<label class="ilbl">Role (optional)</label><select class="sel-input" id="fuRoleId"><option value="">— None —</option></select>'
+      +'<label class="ilbl">Notes</label><textarea class="ta" id="fuNotes" placeholder="Context or reminder…"></textarea>'
+      +'<div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button><button class="btn" onclick="addManualFollowUp()">Add</button></div>';}
 
   if(type==='addTemplate') return `<div class="ct">✉️ New Email Template</div>
     <label class="ilbl">Template Name *</label><input class="ti" id="tplName" placeholder="e.g. VP Cold Outreach" autofocus>
@@ -1828,5 +1721,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:12px 0 6px;font-family:'Cinzel',serif;font-size:11px;color:#8a5500;opacity:.7;letter-spacing:2px">v2.8</div>
+<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#8a5500;opacity:.6;letter-spacing:2px">v2.9</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
