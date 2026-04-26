@@ -1149,33 +1149,69 @@ function renderFollowUps(){
   const items=allFollowUps();
   const el=document.getElementById('followUpList');if(!el)return;
   if(!items.length){el.innerHTML='<div class="empty" style="padding:12px 0;font-size:13px">No follow-ups due.</div>';return;}
-  el.innerHTML=items.map(r=>`
-    <div class="reminder-item ${r.overdue?'overdue':''}">
-      <div class="rem-date ${r.overdue?'overdue':''}">${new Date(r.date).toLocaleDateString([],{month:'short',day:'numeric'})}</div>
+  el.innerHTML=items.map(r=>{
+    const dateStr=new Date(r.date).toLocaleDateString([],{month:'short',day:'numeric'});
+    const tag=r.type==='role'?`🎯 ${r.label} @ ${r.sub||''}`:
+              r.type==='contact'?`👤 ${r.label}${r.sub?' · '+r.sub:''}`:
+              r.type==='manual'&&(r.coName||r.contactName||r.roleName)?
+                `${r.label}${r.roleName?' → '+r.roleName:''}${r.coName?' @ '+r.coName:''}${r.contactName&&!r.coName?' w/ '+r.contactName:''}`:
+                r.label;
+    const linkedContact=r.contactId||r.type==='contact'?r.contactId||null:null;
+    const linkedCoId=r.coId||null;
+    const linkedRoleId=r.roleId||null;
+    return `<div class="reminder-item ${r.overdue?'overdue':''}">
+      <div class="rem-date ${r.overdue?'overdue':''}">${dateStr}</div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;color:var(--ink);font-weight:600">${r.label}</div>
-        ${r.sub?`<div style="font-size:11px;color:var(--il)">${r.sub}</div>`:''}
+        <div style="font-size:13px;color:var(--ink);font-weight:600">${escH(r.label)}</div>
+        ${r.type!=='manual'||r.coName||r.contactName||r.roleName?`<div style="font-size:11px;color:var(--il)">${escH((r.roleName?'🎯 '+r.roleName+' ':'')+(r.coName?'🏢 '+r.coName:'')+(r.contactName?' 👤 '+r.contactName:''))}</div>`:''}
+        ${r.notes?`<div style="font-size:11px;color:var(--il);font-style:italic">${escH(r.notes)}</div>`:''}
       </div>
       <div style="display:flex;gap:5px;flex-shrink:0">
-        ${r.type==='role'?`<button class="btn bsm bgh" data-tip="Log an action" onclick="openQuestModal(null,'${r.roleId}','${r.coId}')">⚔</button>`:''}
-        ${r.type==='contact'?`<button class="btn bsm bgh" data-tip="Log call" onclick="openModal('phoneOutreach',{contactId:'${r.contactId}'})">📞</button>`:''}
-        ${r.type==='contact'?`<button class="btn bsm bgh" data-tip="Log email" onclick="openModal('emailOutreach',{contactId:'${r.contactId}'})">✉️</button>`:''}
-        <button class="btn bsm bgh" data-tip="Mark done" onclick="dismissFollowUp(${JSON.stringify(r).replace(/"/g,'&quot;')})">✓</button>
+        ${linkedRoleId&&linkedCoId?`<button class="btn bsm bgh" title="Log action" onclick="openQuestModal(null,'${linkedRoleId}','${linkedCoId}')">⚔</button>`:''}
+        ${linkedContact?`<button class="btn bsm bgh" title="Log call" onclick="openModal('phoneOutreach',{contactId:'${linkedContact}'})">📞</button>`:''}
+        ${linkedContact?`<button class="btn bsm bgh" title="Log email" onclick="openModal('emailOutreach',{contactId:'${linkedContact}'})">✉️</button>`:''}
+        ${linkedCoId&&!linkedRoleId&&!linkedContact?`<button class="btn bsm bgh" title="Log outreach" onclick="openModal('phoneOutreach',{coId:'${linkedCoId}'})">📞</button>`:''}
+        <button class="btn bsm bgh" title="Mark done" onclick="dismissFollowUp(${JSON.stringify(r).replace(/"/g,'&quot;')})">✓</button>
       </div>
-    </div>`).join('');
+    </div>`;}).join('');
 }
 function dismissFollowUp(r){
   if(r.type==='role'&&S.companies[r.coId]?.roles[r.roleId])S.companies[r.coId].roles[r.roleId].followUpDate='';
   else if(r.type==='contact'&&S.contacts[r.contactId])S.contacts[r.contactId].followUpDate='';
   else if(r.type==='manual'){S.followUps=(S.followUps||[]).filter(f=>f.id!==r.fuId);}
+  // Also clear linked entity follow-up dates if set
+  if(r.type==='manual'){
+    if(r.roleId&&r.coId&&S.companies[r.coId]?.roles[r.roleId])S.companies[r.coId].roles[r.roleId].followUpDate='';
+    if(r.contactId&&S.contacts[r.contactId])S.contacts[r.contactId].followUpDate='';
+  }
   save();render();
 }
 function addManualFollowUp(){
   const label=_v('fuLabel');if(!label)return;
   const date=_v('fuDate');if(!date)return;
   if(!S.followUps)S.followUps=[];
-  S.followUps.push({id:uid(),label,date,notes:_v('fuNotes')});
+  const contactId=_v('fuContactId')||'';
+  const coId=_v('fuCoId')||'';
+  const roleId=_v('fuRoleId')||'';
+  const contact=contactId&&S.contacts[contactId];
+  const co=coId&&S.companies[coId];
+  const role=roleId&&coId&&S.companies[coId]?.roles[roleId];
+  S.followUps.push({id:uid(),label,date,notes:_v('fuNotes'),
+    contactId:contactId||null,contactName:contact?.name||'',
+    coId:coId||null,coName:co?.name||'',
+    roleId:roleId||null,roleName:role?.name||''});
   save();render();closeModal();toast('⏰ Follow-up added!');
+}
+function updateFuCompanyFromContact(contactId){
+  const c=S.contacts[contactId];if(!c)return;
+  const coSel=document.getElementById('fuCoId');
+  if(coSel&&c.companyId){coSel.value=c.companyId;updateFuRolesFromCompany(c.companyId);}
+}
+function updateFuRolesFromCompany(coId){
+  const roleSel=document.getElementById('fuRoleId');if(!roleSel)return;
+  const roles=coId&&S.companies[coId]?Object.values(S.companies[coId].roles||{]):[];
+  roleSel.innerHTML='<option value="">— None —</option>'+
+    roles.map(r=>`<option value="${r.id}">${escH(r.name)}</option>`).join('');
 }
 
 // ── Email Templates ───────────────────────────────────────────────
@@ -1496,11 +1532,28 @@ function buildModal(type,data){
       <div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button>
       <button class="btn" onclick="saveEmailOutreach('${data.contactId||''}','${data.roleId||''}','${data.coId||''}',event)">Log Email</button></div>`;}
 
-  if(type==='addFollowUp') return `<div class="ct">⏰ Add Follow-Up</div>
+  if(type==='addFollowUp'){
+    const allCos=Object.values(S.companies).sort((a,b)=>a.name.localeCompare(b.name));
+    const allContacts=Object.values(S.contacts).sort((a,b)=>a.name.localeCompare(b.name));
+    return `<div class="ct">⏰ Add Follow-Up</div>
     <label class="ilbl">Label *</label><input class="ti" id="fuLabel" placeholder="e.g. Call Tracey Hughes" autofocus>
     <label class="ilbl">Date *</label><input class="ti" id="fuDate" type="date">
+    <label class="ilbl">Link to Person (optional)</label>
+    <select class="sel-input" id="fuContactId" onchange="updateFuCompanyFromContact(this.value)">
+      <option value="">— None —</option>
+      ${allContacts.map(c=>`<option value="${c.id}">${escH(c.name)}${c.companyName?' @ '+escH(c.companyName):''}</option>`).join('')}
+    </select>
+    <label class="ilbl">Link to Company (optional)</label>
+    <select class="sel-input" id="fuCoId" onchange="updateFuRolesFromCompany(this.value)">
+      <option value="">— None —</option>
+      ${allCos.map(c=>`<option value="${c.id}">${escH(c.name)}</option>`).join('')}
+    </select>
+    <label class="ilbl">Link to Role (optional)</label>
+    <select class="sel-input" id="fuRoleId">
+      <option value="">— None —</option>
+    </select>
     <label class="ilbl">Notes</label><textarea class="ta" id="fuNotes" placeholder="Context or reminder…"></textarea>
-    <div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button><button class="btn" onclick="addManualFollowUp()">Add</button></div>`;
+    <div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button><button class="btn" onclick="addManualFollowUp()">Add</button></div>`;}
 
   if(type==='addTemplate') return `<div class="ct">✉️ New Email Template</div>
     <label class="ilbl">Template Name *</label><input class="ti" id="tplName" placeholder="e.g. VP Cold Outreach" autofocus>
@@ -1772,5 +1825,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:12px 0 6px;font-family:'Cinzel',serif;font-size:11px;color:#8a5500;opacity:.7;letter-spacing:2px">v2.6</div>
+<div style="text-align:center;padding:12px 0 6px;font-family:'Cinzel',serif;font-size:11px;color:#8a5500;opacity:.7;letter-spacing:2px">v2.7</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
