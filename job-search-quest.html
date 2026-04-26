@@ -660,14 +660,85 @@ const MSFT={
       if(!resp.ok)return false;
       const text=await resp.text();if(!text||text==='{}'||text.length<10)return false;
       const remote=JSON.parse(text);
-      // Merge: take whichever has more total actions
-      const localActions=S.totalActions||0;
-      const remoteActions=remote.totalActions||0;
-      if(remoteActions>localActions){
-        S=Object.assign({companies:{},contacts:{},gold:0,owned:[],equipped:{weapon:null,armor:null,pet:null,lodging:'tent',mount:null},goals:{weekly_apply:5,weekly_network:3,weekly_outreach:5},collapsed:{},dailyGoldClaimed:null,storeCat:'all'},remote);
-        save();toast('☁️ Synced from OneDrive');return true;
-      }
-      return false;
+
+      // Smart merge: combine companies and contacts from both sources,
+      // keeping the version with more activity for each record
+      const merged=Object.assign({
+        companies:{},contacts:{},gold:0,owned:[],
+        equipped:{weapon:null,armor:null,pet:null,lodging:'tent',mount:null},
+        goals:{weekly_apply:5,weekly_network:3,weekly_outreach:5},
+        collapsed:{},dailyGoldClaimed:null,storeCat:'all'
+      }, remote);
+
+      // Merge companies - keep whichever has more damage dealt
+      const allCoIds=new Set([...Object.keys(S.companies||{}),...Object.keys(remote.companies||{})]);
+      allCoIds.forEach(coId=>{
+        const local=S.companies?.[coId];
+        const rem=remote.companies?.[coId];
+        if(local&&rem){
+          // Keep the one with more activity, but merge roles
+          const base=(local.dmgDealt||0)>=(rem.dmgDealt||0)?local:rem;
+          const other=(local.dmgDealt||0)>=(rem.dmgDealt||0)?rem:local;
+          // Merge roles
+          const allRoleIds=new Set([...Object.keys(local.roles||{}),...Object.keys(rem.roles||{})]);
+          base.roles=base.roles||{};
+          allRoleIds.forEach(rId=>{
+            const lr=local.roles?.[rId];const rr=rem.roles?.[rId];
+            if(lr&&rr) base.roles[rId]=(lr.dmgDealt||0)>=(rr.dmgDealt||0)?lr:rr;
+            else base.roles[rId]=lr||rr;
+          });
+          // Merge actLog (combine and deduplicate by time)
+          const allLogs=[...(base.actLog||[]),...(other.actLog||[])];
+          const seen=new Set();
+          base.actLog=allLogs.filter(e=>{const k=e.time+e.questName;if(seen.has(k))return false;seen.add(k);return true;}).slice(0,50);
+          merged.companies[coId]=base;
+        } else {
+          merged.companies[coId]=local||rem;
+        }
+      });
+
+      // Merge contacts - keep whichever has more relationship strength
+      const allCtIds=new Set([...Object.keys(S.contacts||{}),...Object.keys(remote.contacts||{})]);
+      allCtIds.forEach(ctId=>{
+        const local=S.contacts?.[ctId];
+        const rem=remote.contacts?.[ctId];
+        if(local&&rem){
+          const base=(local.relationship||1)>=(rem.relationship||1)?local:rem;
+          merged.contacts[ctId]=base;
+        } else {
+          merged.contacts[ctId]=local||rem;
+        }
+      });
+
+      // Take higher values for XP, gold, level, streak
+      merged.xp=Math.max(S.xp||0,remote.xp||0);
+      merged.level=Math.max(S.level||1,remote.level||1);
+      merged.gold=Math.max(S.gold||0,remote.gold||0);
+      merged.streak=Math.max(S.streak||0,remote.streak||0);
+      merged.totalActions=Math.max(S.totalActions||0,remote.totalActions||0);
+
+      // Merge owned items (union)
+      merged.owned=[...new Set([...(S.owned||[]),...(remote.owned||[])])];
+
+      // Keep equipped from whichever has higher level
+      if((S.level||1)>=(remote.level||1)) merged.equipped=S.equipped||merged.equipped;
+
+      // Merge achievements
+      merged.achievements={...(remote.achievements||{}),...(S.achievements||{})};
+
+      // Merge logs (combine recent from both)
+      const allLogs=[...(S.log||[]),...(remote.log||[])];
+      const seen=new Set();
+      merged.log=allLogs.filter(e=>{const k=(e.time||'')+(e.questName||'');if(seen.has(k))return false;seen.add(k);return true;}).slice(0,60);
+
+      const hadChanges=Object.keys(merged.companies).length>Object.keys(S.companies||{}).length||
+                       Object.keys(merged.contacts).length>Object.keys(S.contacts||{}).length||
+                       merged.totalActions>S.totalActions;
+
+      S=merged;
+      save();
+      if(hadChanges)toast('☁️ Synced & merged from OneDrive');
+      return true;
     }catch(e){return false;}
   },
 
@@ -1701,5 +1772,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:12px 0 6px;font-family:'Cinzel',serif;font-size:11px;color:#8a5500;opacity:.7;letter-spacing:2px">v2.4</div>
+<div style="text-align:center;padding:12px 0 6px;font-family:'Cinzel',serif;font-size:11px;color:#8a5500;opacity:.7;letter-spacing:2px">v2.5</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
