@@ -1151,29 +1151,32 @@ function renderFollowUps(){
   if(!items.length){el.innerHTML='<div class="empty" style="padding:12px 0;font-size:13px">No follow-ups due.</div>';return;}
   el.innerHTML=items.map(r=>{
     const dateStr=new Date(r.date).toLocaleDateString([],{month:'short',day:'numeric'});
-    const tag=r.type==='role'?`🎯 ${r.label} @ ${r.sub||''}`:
-              r.type==='contact'?`👤 ${r.label}${r.sub?' · '+r.sub:''}`:
-              r.type==='manual'&&(r.coName||r.contactName||r.roleName)?
-                `${r.label}${r.roleName?' → '+r.roleName:''}${r.coName?' @ '+r.coName:''}${r.contactName&&!r.coName?' w/ '+r.contactName:''}`:
-                r.label;
-    const linkedContact=r.contactId||r.type==='contact'?r.contactId||null:null;
+    const linkedContact=r.type==='contact'?r.contactId:(r.contactId||null);
     const linkedCoId=r.coId||null;
     const linkedRoleId=r.roleId||null;
-    return `<div class="reminder-item ${r.overdue?'overdue':''}">
-      <div class="rem-date ${r.overdue?'overdue':''}">${dateStr}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;color:var(--ink);font-weight:600">${escH(r.label)}</div>
-        ${r.type!=='manual'||r.coName||r.contactName||r.roleName?`<div style="font-size:11px;color:var(--il)">${escH((r.roleName?'🎯 '+r.roleName+' ':'')+(r.coName?'🏢 '+r.coName:'')+(r.contactName?' 👤 '+r.contactName:''))}</div>`:''}
-        ${r.notes?`<div style="font-size:11px;color:var(--il);font-style:italic">${escH(r.notes)}</div>`:''}
-      </div>
-      <div style="display:flex;gap:5px;flex-shrink:0">
-        ${linkedRoleId&&linkedCoId?`<button class="btn bsm bgh" title="Log action" onclick="openQuestModal(null,'${linkedRoleId}','${linkedCoId}')">⚔</button>`:''}
-        ${linkedContact?`<button class="btn bsm bgh" title="Log call" onclick="openModal('phoneOutreach',{contactId:'${linkedContact}'})">📞</button>`:''}
-        ${linkedContact?`<button class="btn bsm bgh" title="Log email" onclick="openModal('emailOutreach',{contactId:'${linkedContact}'})">✉️</button>`:''}
-        ${linkedCoId&&!linkedRoleId&&!linkedContact?`<button class="btn bsm bgh" title="Log outreach" onclick="openModal('phoneOutreach',{coId:'${linkedCoId}'})">📞</button>`:''}
-        <button class="btn bsm bgh" title="Mark done" onclick="dismissFollowUp(${JSON.stringify(r).replace(/"/g,'&quot;')})">✓</button>
-      </div>
-    </div>`;}).join('');
+    const subParts=[];
+    if(r.roleName)subParts.push('\uD83C\uDFAF '+r.roleName);
+    if(r.coName)subParts.push('\uD83C\uDFE2 '+r.coName);
+    if(r.contactName)subParts.push('\uD83D\uDC64 '+r.contactName);
+    const sub=subParts.join(' · ');
+    const overdueClass=r.overdue?'overdue':'';
+    let btns='';
+    if(linkedRoleId&&linkedCoId)btns+='<button class="btn bsm bgh" title="Log action" onclick="openQuestModal(null,\''+linkedRoleId+'\',\''+linkedCoId+'\')">\u2694</button>';
+    if(linkedContact)btns+='<button class="btn bsm bgh" title="Log call" onclick="openModal(\'phoneOutreach\',{contactId:\''+linkedContact+'\'})">\uD83D\uDCDE</button>';
+    if(linkedContact)btns+='<button class="btn bsm bgh" title="Log email" onclick="openModal(\'emailOutreach\',{contactId:\''+linkedContact+'\'})">\u2709\uFE0F</button>';
+    if(linkedCoId&&!linkedRoleId&&!linkedContact)btns+='<button class="btn bsm bgh" title="Log outreach" onclick="openModal(\'phoneOutreach\',{coId:\''+linkedCoId+'\'})">\uD83D\uDCDE</button>';
+    const dismissData=JSON.stringify(r).replace(/"/g,'&quot;');
+    btns+='<button class="btn bsm bgh" title="Mark done" onclick="dismissFollowUp('+dismissData+')">\u2713</button>';
+    return '<div class="reminder-item '+overdueClass+'">'
+      +'<div class="rem-date '+overdueClass+'">'+dateStr+'</div>'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-size:13px;color:var(--ink);font-weight:600">'+escH(r.label)+'</div>'
+      +(sub?'<div style="font-size:11px;color:var(--il)">'+escH(sub)+'</div>':'')
+      +(r.notes?'<div style="font-size:11px;color:var(--il);font-style:italic">'+escH(r.notes)+'</div>':'')
+      +'</div>'
+      +'<div style="display:flex;gap:5px;flex-shrink:0">'+btns+'</div>'
+      +'</div>';
+  }).join('');
 }
 function dismissFollowUp(r){
   if(r.type==='role'&&S.companies[r.coId]?.roles[r.roleId])S.companies[r.coId].roles[r.roleId].followUpDate='';
@@ -1825,5 +1828,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:12px 0 6px;font-family:'Cinzel',serif;font-size:11px;color:#8a5500;opacity:.7;letter-spacing:2px">v2.7</div>
+<div style="text-align:center;padding:12px 0 6px;font-family:'Cinzel',serif;font-size:11px;color:#8a5500;opacity:.7;letter-spacing:2px">v2.8</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
