@@ -417,6 +417,8 @@ body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100
 </div>
 
 <script>
+function normUrl(u){if(!u)return '';try{var x=new URL(u.trim());return x.origin+x.pathname;}catch(e){return u.trim().toLowerCase();}}
+function normKey(name,co){return ((name||'')+(co||'')).toLowerCase().replace(/[^a-z0-9]/g,'');}
 // ══════════════════════════════════════════════════════════════════
 // STORE CATALOG
 // ══════════════════════════════════════════════════════════════════
@@ -1057,15 +1059,15 @@ function renderPotentialRoles(){
   var cnt=document.getElementById('potRoleCount');
   var now=Date.now();
   var c=S.searchCriteria||{};
-  var allRoles=getPotentialRoles();
-  // Filter out snoozed roles that haven't expired yet
-  var roles=allRoles.filter(function(r){
+  var allStagedRoles=getPotentialRoles();
+  // Filter out snoozed roles that have not expired yet
+  var roles=allStagedRoles.filter(function(r){
     if(r.snoozedUntil&&new Date(r.snoozedUntil).getTime()>now)return false;
     return true;
   });
   // Stale detection - flag roles older than maxAge if set
   var maxAgeDays=c.maxAge||null;
-  var snoozedCount=allRoles.length-roles.length;
+  var snoozedCount=allStagedRoles.length-roles.length;
   var pending=roles.length;
   if(cnt)cnt.textContent=(pending?pending+' pending':(snoozedCount?'':''))+(snoozedCount?' ('+snoozedCount+' snoozed)':'');
   if(!roles.length){
@@ -1115,8 +1117,6 @@ function renderPotentialRoles(){
   }).join('');
 }
 // ── Potential Role Import with Deduplication ─────────────────────
-function normUrl(u){if(!u)return '';try{var x=new URL(u.trim());return x.origin+x.pathname;}catch(e){return u.trim().toLowerCase();}}
-function normKey(name,co){return ((name||'')+(co||'')).toLowerCase().replace(/[^a-z0-9]/g,'');}
 function importPotentialRoles(roles){
   if(!S.dismissedRoleUrls)S.dismissedRoleUrls=[];
   if(!S.dismissedRoleKeys)S.dismissedRoleKeys=[];
@@ -2167,5 +2167,5 @@ startApp();
 }
 </script>
 
-<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v3.2</div>
+<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v3.3</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
