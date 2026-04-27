@@ -1013,6 +1013,7 @@ function getCriteria(){
   return S.searchCriteria;
 }
 function renderCriteria(){
+  try{
   const el=document.getElementById('criteriaDisplay');if(!el)return;
   const c=getCriteria();
   if(!c||!Object.keys(c).length){
@@ -1030,6 +1031,7 @@ function renderCriteria(){
   if(c.maxAge)parts.push('<div class="crit-row"><span class="crit-lbl">Max Age</span><span class="crit-tag">'+c.maxAge+' days</span></div>');
   if(c.companyCapPerCo)parts.push('<div class="crit-row"><span class="crit-lbl">Co. Cap</span><span class="crit-tag">'+c.companyCapPerCo+' per company</span></div>');
   el.innerHTML=parts.join('')||'<div class="empty" style="font-size:13px">No criteria set.</div>';
+  }catch(e){console.error('renderCriteria error:',e);}
 }
 function saveCriteria(){
   const c={};
@@ -1055,10 +1057,14 @@ function saveCriteria(){
 // ── Potential Roles ───────────────────────────────────────────────
 function getPotentialRoles(){if(!S.potentialRoles)S.potentialRoles=[];return S.potentialRoles;}
 function renderPotentialRoles(){
+  try{
   var el=document.getElementById('potentialRolesList');if(!el)return;
   var cnt=document.getElementById('potRoleCount');
   var now=Date.now();
-  var c=S.searchCriteria||{};
+  var c=(S&&S.searchCriteria)||{};
+  if(!S.potentialRoles)S.potentialRoles=[];
+  if(!S.dismissedRoleUrls)S.dismissedRoleUrls=[];
+  if(!S.dismissedRoleKeys)S.dismissedRoleKeys=[];
   var allStagedRoles=getPotentialRoles();
   // Filter out snoozed roles that have not expired yet
   var roles=allStagedRoles.filter(function(r){
@@ -1115,9 +1121,11 @@ function renderPotentialRoles(){
       +srcBadge+snoozeNote
       +'</div></div>';
   }).join('');
+  }catch(e){console.error('renderPotentialRoles:',e);}
 }
 // ── Potential Role Import with Deduplication ─────────────────────
 function importPotentialRoles(roles){
+  if(!roles||!Array.isArray(roles))return {added:0,skipped:0,updated:0};
   if(!S.dismissedRoleUrls)S.dismissedRoleUrls=[];
   if(!S.dismissedRoleKeys)S.dismissedRoleKeys=[];
   if(!S.potentialRoles)S.potentialRoles=[];
@@ -2154,6 +2162,10 @@ if(!S.equipped)S.equipped={weapon:null,armor:null,pet:null,lodging:‘tent’,mo
 if(!S.equipped.lodging)S.equipped.lodging=‘tent’;
 if(!S.goals)S.goals={weekly_apply:5,weekly_network:3,weekly_outreach:5};
 if(!S.collapsed)S.collapsed={};if(!S.storeCat)S.storeCat=‘all’;
+if(!S.potentialRoles)S.potentialRoles=[];
+if(!S.searchCriteria)S.searchCriteria={};
+if(!S.dismissedRoleUrls)S.dismissedRoleUrls=[];
+if(!S.dismissedRoleKeys)S.dismissedRoleKeys=[];
 Object.values(S.companies||{}).forEach(co=>{
 if(!co.actLog)co.actLog=[];
 Object.values(co.roles||{}).forEach(r=>{if(!r.actLog)r.actLog=[];if(!r.resumes)r.resumes=[];if(!r.status)r.status=‘active’;});
@@ -2167,5 +2179,5 @@ startApp();
 }
 </script>
 
-<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v3.3</div>
+<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v3.4</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
