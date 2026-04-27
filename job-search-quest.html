@@ -225,6 +225,13 @@ body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100
 .purchase-big .pdesc{font-size:13px;color:var(--il);font-style:italic;margin-bottom:8px;line-height:1.5}
 .purchase-big .peffect{font-size:12px;color:var(--green);font-family:'Cinzel',serif;margin-bottom:12px;font-weight:600}
 .purchase-big .pprice{font-size:22px;color:var(--gold);font-family:'Cinzel Decorative',serif}
+.crit-row{display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;font-size:13px}
+.crit-lbl{font-family:'Cinzel',serif;font-size:10px;color:var(--gd);letter-spacing:1px;min-width:80px;flex-shrink:0;padding-top:3px;text-transform:uppercase}
+.crit-tag{display:inline-block;background:rgba(200,144,32,.2);border:1px solid #a07030;border-radius:10px;padding:2px 10px;font-size:12px;color:var(--ink);margin:2px 2px 2px 0}
+.crit-tag-red{background:rgba(192,57,43,.15);border-color:#c0392b;color:#c0392b}
+.resp-positive{color:#27ae60;font-weight:700}
+.resp-neutral{color:#8a5500;font-weight:700}
+.resp-negative{color:#c0392b;font-weight:700}
 </style>
 </head>
 <body>
@@ -291,6 +298,19 @@ body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100
     <div id="followUpList"><div class="empty" style="padding:12px 0;font-size:13px">No follow-ups due.</div></div>
   </div>
 
+  <!-- Potential Roles -->
+  <div class="card" id="potentialRolesCard">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <div class="ct" style="margin:0;border:none;padding:0">🔍 Potential Roles</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span id="potRoleCount" style="font-size:12px;color:var(--il);font-family:'Cinzel',serif"></span>
+        <button class="btn bsm bgh" title="Add a potential role manually" onclick="openModal('addPotentialRole',{})">+ Add</button>
+        <button class="btn bsm bgh" title="Job search criteria for automated matching" onclick="openModal('editCriteria',{})">⚙️ Criteria</button>
+      </div>
+    </div>
+    <div id="potentialRolesList"><div class="empty" style="font-size:13px;padding:12px 0">No potential roles yet. Add manually or connect Cowork to auto-populate.</div></div>
+  </div>
+
   <!-- Boss Arena -->
   <div class="card">
     <div class="ah">
@@ -354,6 +374,15 @@ body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100
       <button class="btn bsm" data-tip="Add a new email template" onclick="openModal(&#39;addTemplate&#39;)">+ Template</button>
     </div>
     <div id="templateList"></div>
+  </div>
+
+  <!-- Job Search Criteria -->
+  <div class="card" id="criteriaCard">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <div class="ct" style="margin:0;border:none;padding:0">🎯 Job Search Criteria</div>
+      <button class="btn bsm bgh" title="Edit your search criteria" onclick="openModal('editCriteria',{})">✏️ Edit</button>
+    </div>
+    <div id="criteriaDisplay"></div>
   </div>
 
   <!-- OneDrive Sync -->
@@ -644,18 +673,17 @@ const MSFT={
       if(!resp.ok)return false;
       const text=await resp.text();if(!text||text==='{}'||text.length<10)return false;
       const remote=JSON.parse(text);
-      // Smart merge
-      const merged=Object.assign({companies:{},contacts:{},gold:0,owned:[],equipped:{weapon:null,armor:null,pet:null,lodging:'tent',mount:null},goals:{weekly_apply:5,weekly_network:3,weekly_outreach:5},collapsed:{},dailyGoldClaimed:null,storeCat:'all'},remote);
-      new Set([...Object.keys(S.companies||{}),...Object.keys(remote.companies||{})]).forEach(function(id){
-        const lc=S.companies&&S.companies[id],rc=remote.companies&&remote.companies[id];
-        if(lc&&rc){const base=(lc.dmgDealt||0)>=(rc.dmgDealt||0)?lc:rc,other=(lc.dmgDealt||0)>=(rc.dmgDealt||0)?rc:lc;
-          new Set([...Object.keys(lc.roles||{}),...Object.keys(rc.roles||{})]).forEach(function(rId){
-            const lr=lc.roles&&lc.roles[rId],rr=rc.roles&&rc.roles[rId];
-            base.roles=base.roles||{};base.roles[rId]=(lr&&rr)?((lr.dmgDealt||0)>=(rr.dmgDealt||0)?lr:rr):(lr||rr);});
-          merged.companies[id]=base;}else merged.companies[id]=lc||rc;});
-      new Set([...Object.keys(S.contacts||{}),...Object.keys(remote.contacts||{})]).forEach(function(id){
-        const lc=S.contacts&&S.contacts[id],rc=remote.contacts&&remote.contacts[id];
-        merged.contacts[id]=(lc&&rc)?((lc.relationship||1)>=(rc.relationship||1)?lc:rc):(lc||rc);});
+      const merged=Object.assign({companies:{},contacts:{},gold:0,owned:[],equipped:{weapon:null,armor:null,pet:null,lodging:'tent',mount:null},goals:{weekly_apply:5,weekly_network:3,weekly_outreach:5},collapsed:{},dailyGoldClaimed:null,storeCat:'all',potentialRoles:[],searchCriteria:{}},remote);
+      new Set([...Object.keys(S.companies||{}),...Object.keys(remote.companies||{})]).forEach(function(cid){
+        const lc=S.companies&&S.companies[cid],rc=remote.companies&&remote.companies[cid];
+        if(lc&&rc){const base=(lc.dmgDealt||0)>=(rc.dmgDealt||0)?lc:rc;
+          new Set([...Object.keys(lc.roles||{}),...Object.keys(rc.roles||{})]).forEach(function(rid){
+            const lr=lc.roles&&lc.roles[rid],rr=rc.roles&&rc.roles[rid];
+            base.roles=base.roles||{};base.roles[rid]=(lr&&rr)?((lr.dmgDealt||0)>=(rr.dmgDealt||0)?lr:rr):(lr||rr);});
+          merged.companies[cid]=base;}else merged.companies[cid]=lc||rc;});
+      new Set([...Object.keys(S.contacts||{}),...Object.keys(remote.contacts||{})]).forEach(function(cid){
+        const lc=S.contacts&&S.contacts[cid],rc=remote.contacts&&remote.contacts[cid];
+        merged.contacts[cid]=(lc&&rc)?((lc.relationship||1)>=(rc.relationship||1)?lc:rc):(lc||rc);});
       merged.xp=Math.max(S.xp||0,remote.xp||0);merged.level=Math.max(S.level||1,remote.level||1);
       merged.gold=Math.max(S.gold||0,remote.gold||0);merged.streak=Math.max(S.streak||0,remote.streak||0);
       merged.totalActions=Math.max(S.totalActions||0,remote.totalActions||0);
@@ -950,6 +978,234 @@ function _fv(id){const el=document.getElementById(id);return el?el.value:'';}
 // ══════════════════════════════════════════════════════════════════
 // RENDER
 // ══════════════════════════════════════════════════════════════════
+
+// ── Search Criteria ───────────────────────────────────────────────
+function getCriteria(){
+  if(!S.searchCriteria)S.searchCriteria={};
+  return S.searchCriteria;
+}
+function renderCriteria(){
+  const el=document.getElementById('criteriaDisplay');if(!el)return;
+  const c=getCriteria();
+  if(!c||!Object.keys(c).length){
+    el.innerHTML='<div class="empty" style="font-size:13px;padding:8px 0">No criteria set. Click Edit to define what you\'re looking for.</div>';
+    return;
+  }
+  var parts=[];
+  if(c.titles&&c.titles.length)parts.push('<div class="crit-row"><span class="crit-lbl">Titles</span><span>'+c.titles.map(function(t){return '<span class="crit-tag">'+escH(t)+'</span>';}).join(' ')+'</span></div>');
+  if(c.locations&&c.locations.length)parts.push('<div class="crit-row"><span class="crit-lbl">Locations</span><span>'+c.locations.map(function(l){return '<span class="crit-tag">'+escH(l)+'</span>';}).join(' ')+'</span></div>');
+  if(c.seniority&&c.seniority.length)parts.push('<div class="crit-row"><span class="crit-lbl">Seniority</span><span>'+c.seniority.map(function(s){return '<span class="crit-tag">'+escH(s)+'</span>';}).join(' ')+'</span></div>');
+  if(c.payMin||c.payMax)parts.push('<div class="crit-row"><span class="crit-lbl">Pay Range</span><span class="crit-tag">'+(c.payMin?'$'+c.payMin+'k':'')+' – '+(c.payMax?'$'+c.payMax+'k':'open')+'</span></div>');
+  if(c.keywords&&c.keywords.length)parts.push('<div class="crit-row"><span class="crit-lbl">Keywords</span><span>'+c.keywords.map(function(k){return '<span class="crit-tag">'+escH(k)+'</span>';}).join(' ')+'</span></div>');
+  if(c.exclude&&c.exclude.length)parts.push('<div class="crit-row"><span class="crit-lbl">Exclude</span><span>'+c.exclude.map(function(k){return '<span class="crit-tag crit-tag-red">'+escH(k)+'</span>';}).join(' ')+'</span></div>');
+  if(c.remote)parts.push('<div class="crit-row"><span class="crit-lbl">Remote</span><span class="crit-tag">'+escH(c.remote)+'</span></div>');
+  el.innerHTML=parts.join('')||'<div class="empty" style="font-size:13px">No criteria set.</div>';
+}
+function saveCriteria(){
+  const c={};
+  const titles=_v('critTitles');if(titles)c.titles=titles.split(',').map(function(t){return t.trim();}).filter(Boolean);
+  const locs=_v('critLocs');if(locs)c.locations=locs.split(',').map(function(t){return t.trim();}).filter(Boolean);
+  const kw=_v('critKW');if(kw)c.keywords=kw.split(',').map(function(t){return t.trim();}).filter(Boolean);
+  const ex=_v('critEx');if(ex)c.exclude=ex.split(',').map(function(t){return t.trim();}).filter(Boolean);
+  const sen=[];
+  ['Director','Senior Manager','Manager','VP','Individual Contributor'].forEach(function(s){
+    const cb=document.getElementById('sen_'+s.replace(/ /g,'_'));
+    if(cb&&cb.checked)sen.push(s);
+  });
+  if(sen.length)c.seniority=sen;
+  const payMin=_v('critPayMin');if(payMin)c.payMin=payMin;
+  const payMax=_v('critPayMax');if(payMax)c.payMax=payMax;
+  const remote=_v('critRemote');if(remote)c.remote=remote;
+  S.searchCriteria=c;
+  save();renderCriteria();closeModal();toast('\uD83C\uDFAF Criteria saved!');
+}
+
+// ── Potential Roles ───────────────────────────────────────────────
+function getPotentialRoles(){if(!S.potentialRoles)S.potentialRoles=[];return S.potentialRoles;}
+function renderPotentialRoles(){
+  const el=document.getElementById('potentialRolesList');if(!el)return;
+  const cnt=document.getElementById('potRoleCount');
+  const roles=getPotentialRoles();
+  if(cnt)cnt.textContent=roles.length?roles.length+' pending':'';
+  if(!roles.length){
+    el.innerHTML='<div class="empty" style="font-size:13px;padding:12px 0">No potential roles yet. Add manually or connect Cowork to auto-populate.</div>';
+    return;
+  }
+  el.innerHTML=roles.map(function(r){
+    var coName=r.companyName||r.coName||'';
+    var matchBadge=r.matchScore?'<span style="font-size:11px;background:rgba(39,174,96,.2);color:#1a6030;border:1px solid rgba(39,174,96,.4);border-radius:8px;padding:1px 7px;font-family:\'Cinzel\',serif">'+r.matchScore+'% match</span>':'';
+    var srcBadge=r.source?'<span style="font-size:10px;color:var(--il);margin-left:6px">via '+escH(r.source)+'</span>':'';
+    var foundDate=r.foundDate?'<span style="font-size:11px;color:var(--il)">Found '+new Date(r.foundDate).toLocaleDateString([],{month:'short',day:'numeric'})+'</span>':'';
+    return '<div style="border:2px solid #a07030;border-radius:6px;padding:12px;margin-bottom:10px;background:rgba(200,144,32,.08)">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;margin-bottom:6px">'
+      +'<div><div style="font-size:14px;font-weight:700;font-family:\'Cinzel\',serif;color:var(--ink)">'+escH(r.name)+'</div>'
+      +(coName?'<div style="font-size:12px;color:var(--il)">\uD83C\uDFE2 '+escH(coName)+'</div>':'')
+      +(r.location?'<div style="font-size:12px;color:var(--il)">\uD83D\uDCCD '+escH(r.location)+'</div>':'')
+      +(r.salary?'<div style="font-size:12px;color:#1a6030">\uD83D\uDCB0 '+escH(r.salary)+'</div>':'')
+      +'</div>'
+      +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">'+matchBadge+foundDate+'</div>'
+      +'</div>'
+      +(r.description?'<div style="font-size:12px;color:var(--il);line-height:1.5;margin-bottom:8px;max-height:60px;overflow:hidden">'+escH(r.description.slice(0,200))+(r.description.length>200?'\u2026':'')+'</div>':'')
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
+      +(r.url?'<a href="'+r.url+'" target="_blank" class="btn bsm bgh" style="text-decoration:none">\uD83D\uDD17 View</a>':'')
+      +'<button class="btn bsm" onclick="approvePotentialRole(\''+r.id+'\')">\u2713 Approve</button>'
+      +'<button class="btn bsm bgh" onclick="snoozePotentialRole(\''+r.id+'\')">\u23F0 Snooze</button>'
+      +'<button class="btn bsm bgh" onclick="dismissPotentialRole(\''+r.id+'\')">\u2715 Dismiss</button>'
+      +srcBadge
+      +'</div></div>';
+  }).join('');
+}
+function approvePotentialRole(id){
+  const roles=getPotentialRoles();
+  const r=roles.find(function(x){return x.id===id;});if(!r)return;
+  // Find or create company
+  var coId=r.coId||null;
+  if(!coId&&r.companyName){
+    coId=Object.keys(S.companies).find(function(k){return S.companies[k].name.toLowerCase()===r.companyName.toLowerCase();});
+    if(!coId){coId=uid();S.companies[coId]={id:coId,name:r.companyName,careersUrl:r.careersUrl||'',dmgDealt:0,maxHp:CO_MAX,roles:{},actLog:[]};}
+  }
+  if(!coId){toast('\u26A0\uFE0F No company linked. Add company first.');return;}
+  const roleId=uid();
+  S.companies[coId].roles[roleId]={id:roleId,name:r.name,location:r.location||'',url:r.url||'',salary:r.salary||'',deadline:'',followUpDate:'',status:'active',dmgDealt:0,maxHp:ROLE_MAX,description:r.description||'',importStatus:r.description?'done':'',resumes:[],actLog:[]};
+  S.potentialRoles=roles.filter(function(x){return x.id!==id;});
+  save();render();toast('\u2713 Role approved and added to '+S.companies[coId].name+'!');
+}
+function snoozePotentialRole(id){
+  const r=getPotentialRoles().find(function(x){return x.id===id;});if(!r)return;
+  r.snoozedUntil=new Date(Date.now()+7*24*60*60*1000).toISOString();
+  save();renderPotentialRoles();toast('\u23F0 Snoozed for 7 days');
+}
+function dismissPotentialRole(id){
+  S.potentialRoles=getPotentialRoles().filter(function(x){return x.id!==id;});
+  save();renderPotentialRoles();toast('\u2715 Dismissed');
+}
+function addPotentialRoleManual(){
+  var name=_v('prName');if(!name)return;
+  var coName=_v('prCoName');
+  var pr={id:uid(),name:name,companyName:coName,coId:'',location:_v('prLocation'),salary:_v('prSalary'),url:_v('prUrl'),description:_fv('prDesc'),source:'manual',foundDate:new Date().toISOString(),matchScore:null};
+  // Try to match existing company
+  if(coName){
+    var match=Object.values(S.companies).find(function(c){return c.name.toLowerCase()===coName.toLowerCase();});
+    if(match)pr.coId=match.id;
+  }
+  getPotentialRoles().push(pr);
+  save();renderPotentialRoles();closeModal();toast('\uD83D\uDD0D Potential role added!');
+}
+
+// ── Log Response from NPC ─────────────────────────────────────────
+function setSentiment(val,el){
+  document.getElementById('respSentiment').value=val;
+  document.querySelectorAll('[onclick^="setSentiment"]').forEach(function(l){l.style.borderColor='var(--gd)';l.style.background=''});
+  if(el){el.style.borderColor=val==='positive'?'#27ae60':val==='negative'?'#c0392b':'#8a5500';el.style.background=val==='positive'?'rgba(39,174,96,.1)':val==='negative'?'rgba(192,57,43,.1)':'rgba(138,85,0,.1)';}
+}
+
+function saveResponseLog(contactId,evt){
+  const c=S.contacts[contactId];if(!c)return;
+  const responseType=_v('respType');
+  const sentiment=_v('respSentiment');
+  const notes=_fv('respNotes');
+  const followUp=_v('respFollowUp');
+  const label='\uD83D\uDCE8 Response: '+responseType;
+  const entry={time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),
+    date:new Date().toLocaleDateString([],{month:'short',day:'numeric'}),
+    questName:label,questIcon:'\uD83D\uDCE8',
+    responseType:responseType,sentiment:sentiment,notes:notes,isResponse:true};
+  if(!c.actLog)c.actLog=[];
+  c.actLog.unshift(entry);
+  c.lastContacted=new Date().toISOString();
+  if(followUp)c.followUpDate=followUp;
+  save();render();closeModal();toast(label+' logged!');
+}
+
+// ── Edit Resume on Role ───────────────────────────────────────────
+function saveRoleResume(coId,roleId){
+  const role=S.companies[coId]&&S.companies[coId].roles[roleId];if(!role)return;
+  if(_pendingFile&&_pendingFile.name){
+    if(!role.resumes)role.resumes=[];
+    const existing=role.resumes.find(function(r){return r.name===_pendingFile.name;});
+    if(!existing)role.resumes.push({name:_pendingFile.name,data:_pendingFile.data});
+    role.activeResume=_pendingFile.name;
+    save();render();closeModal();toast('\uD83D\uDCC4 Resume updated!');
+  } else {
+    const sel=_v('resumeSel');
+    if(sel){role.activeResume=sel;save();render();closeModal();toast('\uD83D\uDCC4 Resume set!');}
+  }
+}
+
+// ── Template placeholder fill ─────────────────────────────────────
+function fillTemplate(body,npc,role,company){
+  var result=body;
+  if(npc){result=result.replace(/\[Name\]/g,npc.name||'[Name]');}
+  if(role){result=result.replace(/\[Role\]/g,role.name||'[Role]');}
+  if(company){result=result.replace(/\[Company\]/g,company.name||'[Company]');}
+  if(role&&role.location){result=result.replace(/\[region\]/g,role.location);}
+  else if(company&&company.careersUrl){result=result.replace(/\[region\]/g,'[region]');}
+  return result;
+}
+
+// ── Copy template (body only, with optional fill) ─────────────────
+function copyTemplateFilled(id){
+  const t=getTemplates().find(function(x){return x.id===id;});if(!t)return;
+  const coId=_v('copyCoId')||'';
+  const roleId=_v('copyRoleId')||'';
+  const contactId=_v('copyContactId')||'';
+  const co=coId&&S.companies[coId]||null;
+  const role=roleId&&coId&&co&&co.roles[roleId]||null;
+  const npc=contactId&&S.contacts[contactId]||null;
+  var body=fillTemplate(t.body,npc,role,co);
+  navigator.clipboard.writeText(body).then(function(){
+    toast('\uD83D\uDCCB Copied!');closeModal();
+  }).catch(function(){toast('Could not copy');});
+}
+function updateCopyRoles(coId){
+  const sel=document.getElementById('copyRoleId');if(!sel)return;
+  const roles=coId&&S.companies[coId]?Object.values(S.companies[coId].roles||{}):[];
+  sel.innerHTML='<option value="">— None —</option>'+roles.map(function(r){return '<option value="'+r.id+'">'+escH(r.name)+'</option>';}).join('');
+}
+function updateCopyPreview(){
+  const t=getTemplates().find(function(x){return x.id===_ctx.tplId;});if(!t)return;
+  const coId=_v('copyCoId')||'';const roleId=_v('copyRoleId')||'';const contactId=_v('copyContactId')||'';
+  const co=coId&&S.companies[coId]||null;
+  const role=roleId&&coId&&co&&co.roles[roleId]||null;
+  const npc=contactId&&S.contacts[contactId]||null;
+  var body=fillTemplate(t.body,npc,role,co);
+  const prev=document.getElementById('copyPreview');
+  if(prev)prev.textContent=body;
+}
+
+// ── Email Outreach with template fill ─────────────────────────────
+function updateEmailRoles(coId){
+  const sel=document.getElementById('eoRoleId');if(!sel)return;
+  const roles=coId&&S.companies[coId]?Object.values(S.companies[coId].roles||{}):[];
+  sel.innerHTML='<option value="">— None —</option>'+roles.map(function(r){return '<option value="'+r.id+'">'+escH(r.name)+'</option>';}).join('');
+  updateEmailPreview();
+}
+function updateEmailPreview(){
+  const tplId=_v('eoTemplate');
+  const prev=document.getElementById('eoPreview');if(!prev)return;
+  if(!tplId){prev.style.display='none';return;}
+  const t=getTemplates().find(function(x){return x.id===tplId;});if(!t){prev.style.display='none';return;}
+  const coId=_v('eoCoId')||'';const roleId=_v('eoRoleId')||'';const contactId=_v('eoContact')||'';
+  const co=coId&&S.companies[coId]||null;
+  const role=roleId&&coId&&co&&co.roles[roleId]||null;
+  const npc=contactId&&S.contacts[contactId]||null;
+  var body=fillTemplate(t.body,npc,role,co);
+  prev.style.display='block';
+  prev.textContent=body;
+}
+
+// ── Follow-up helpers ─────────────────────────────────────────────
+function fuContactChanged(cId){
+  var c=S.contacts[cId];if(!c)return;
+  var coSel=document.getElementById('fuCoId');
+  if(coSel&&c.companyId){coSel.value=c.companyId;fuCoChanged(c.companyId);}
+}
+function fuCoChanged(coId){
+  var sel=document.getElementById('fuRoleId');if(!sel)return;
+  var roles=coId&&S.companies[coId]?Object.values(S.companies[coId].roles||{}):[]; 
+  sel.innerHTML='<option value="">— None —</option>'+roles.map(function(r){return '<option value="'+r.id+'">'+escH(r.name)+'</option>';}).join('');
+}
+
 function render(){
   const rank=getRank(),needed=xpForLvl(S.level),pct=Math.min(100,Math.round(S.xp/needed*100));
   document.getElementById('hAv').childNodes[0].textContent=rank.avatar;
@@ -976,7 +1232,7 @@ function render(){
   document.getElementById('equippedStrip').innerHTML=equippedItems.map(i=>
     `<div class="eq-item"><span class="ei">${i.icon}</span><span class="en">${i.name}</span></div>`).join('');
 
-  renderPipeline();renderGoals();renderReminders();renderFollowUps();renderTemplates();
+  renderPipeline();renderGoals();renderReminders();renderPotentialRoles();renderCriteria();renderFollowUps();renderTemplates();
   renderDots();renderLog();renderArena();renderStore();renderAch();
 }
 
@@ -1096,16 +1352,6 @@ function dismissFollowUp(r){
   else if(r.type==='manual'){S.followUps=(S.followUps||[]).filter(f=>f.id!==r.fuId);}
   save();render();
 }
-function fuContactChanged(cId){
-  var c=S.contacts[cId];if(!c)return;
-  var coSel=document.getElementById('fuCoId');
-  if(coSel&&c.companyId){coSel.value=c.companyId;fuCoChanged(c.companyId);}
-}
-function fuCoChanged(coId){
-  var sel=document.getElementById('fuRoleId');if(!sel)return;
-  var roles=coId&&S.companies[coId]?Object.values(S.companies[coId].roles||{}):[]; 
-  sel.innerHTML='<option value="">— None —</option>'+roles.map(function(r){return '<option value="'+r.id+'">'+escH(r.name)+'</option>';}).join('');
-}
 function addManualFollowUp(){
   var label=_v('fuLabel');if(!label)return;
   var date=_v('fuDate');if(!date)return;
@@ -1122,7 +1368,7 @@ function addManualFollowUp(){
 // ── Email Templates ───────────────────────────────────────────────
 function getTemplates(){return S.emailTemplates||(S.emailTemplates=[
   {id:'tpl1',name:'VP Cold Outreach',subject:'Distribution Sales Leadership — Jim Christiano',body:'Hi [Name],\n\nI wanted to reach out directly rather than wait on job boards. I spent 22 years at DiVal Safety Equipment, most recently directing a $40M division with a 36-person sales force — and before that building their western territory from the ground up.\n\nI\'m targeting Director-level or Senior Manager roles at large industrial distributors in [region]. If you\'re building out your team or know of something coming together, I\'d welcome a short conversation.\n\nBest,\nJim Christiano\n385-272-9562'},
-  {id:'tpl2',name:'Follow-Up After Interview',subject:'Thank You — [Role] Interview',body:'Hi [Name],\n\nThank you for the time today. I enjoyed learning more about [Company] and the [Role] opportunity.\n\nOur conversation reinforced my interest — particularly [specific topic discussed]. I\'m confident my background in [relevant experience] would translate directly.\n\nLooking forward to next steps.\n\nBest,\nJim Christiano'},
+  {id:'tpl2',name:'Follow-Up After Interview',subject:'Thank You — [Role] Interview',body:'Hi [Name],\n\nThank you for the time today. I enjoyed learning more about [Company] and the [Role] opportunity.\n\nOur conversation reinforced my interest. I\'m confident my background would translate directly.\n\nLooking forward to next steps.\n\nBest,\nJim Christiano'},
   {id:'tpl3',name:'Recruiter Outreach',subject:'[Role] — Jim Christiano',body:'Hi [Name],\n\nI came across your profile and wanted to connect. I have 22+ years in industrial/safety distribution with P&L ownership, team leadership, and a track record of consistent revenue growth.\n\nI\'m actively exploring Director and Senior Manager opportunities in [region]. If you\'re working on anything relevant, I\'d be glad to connect.\n\nBest,\nJim Christiano\n385-272-9562'},
 ]);}
 function renderTemplates(){
@@ -1134,7 +1380,7 @@ function renderTemplates(){
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px;flex-wrap:wrap">
         <div style="font-family:'Cinzel',serif;font-size:13px;font-weight:700;color:var(--ink)">${escH(t.name)}</div>
         <div style="display:flex;gap:5px">
-          <button class="btn bsm bgh" data-tip="Copy to clipboard" onclick="copyTemplate('${t.id}',this)">📋 Copy</button>
+          <button class="btn bsm bgh" data-tip="Copy body with optional fill" onclick="openModal('copyTemplate',{tplId:'${t.id}'})">📋 Copy</button>
           <button class="btn bsm bgh" data-tip="Edit template" onclick="openModal('editTemplate',{id:'${t.id}'})">✏️</button>
           <button class="btn bsm bgh" data-tip="Delete template" onclick="deleteTemplate('${t.id}')">🗑</button>
         </div>
@@ -1419,36 +1665,47 @@ function buildModal(type,data){
       <button class="btn" onclick="savePhoneOutreach('${data.contactId||''}','${data.roleId||''}','${data.coId||''}',event)">Log Call</button></div>`;}
 
   if(type==='emailOutreach'){
-    const c=data.contactId?S.contacts[data.contactId]:null;
-    const role=data.roleId&&data.coId?S.companies[data.coId]?.roles[data.roleId]:null;
-    const co=data.coId?S.companies[data.coId]:null;
-    const target=c?`${escH(c.name)}${c.companyName?' @ '+escH(c.companyName):''}`:role?`${escH(role.name)} @ ${escH(co?.name||'')}`:co?escH(co?.name||''):'';
-    const allContacts=Object.values(S.contacts).filter(ct=>!data.coId||ct.companyId===data.coId);
-    return `<div class="ct">✉️ Email Outreach</div>
-      <div class="tinfo"><div class="tin">✉️ ${target||'Email'}</div></div>
-      ${c?.email?`<div style="margin-bottom:10px;padding:8px 12px;background:rgba(42,26,10,.08);border-radius:6px;font-size:13px"><a href="mailto:${c.email}" style="color:var(--gold)">${escH(c.email)}</a></div>`:''}
-      ${!data.contactId&&allContacts.length?`<label class="ilbl">Tag a Person (optional)</label>
-      <select class="sel-input" id="eoContact"><option value="">— None —</option>${allContacts.map(ct=>`<option value="${ct.id}">${escH(ct.name)}${ct.title?' — '+escH(ct.title):''}</option>`).join('')}</select>`:''}
-      <label class="ilbl">Subject</label>
-      <input class="ti" id="eoSubject" placeholder="Email subject line" autofocus>
-      <label class="ilbl">Notes</label>
-      <textarea class="ta" id="eoNotes" placeholder="Summary, key points, response expected…" style="min-height:80px"></textarea>
-      <label class="ilbl">Follow-Up Date</label><input class="ti" id="eoFollowUp" type="date">
-      <div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button>
-      <button class="btn" onclick="saveEmailOutreach('${data.contactId||''}','${data.roleId||''}','${data.coId||''}',event)">Log Email</button></div>`;}
+    var eoC=data.contactId?S.contacts[data.contactId]:null;
+    var eoRole=data.roleId&&data.coId&&S.companies[data.coId]?S.companies[data.coId].roles[data.roleId]:null;
+    var eoCo=data.coId?S.companies[data.coId]:null;
+    var allCos3=Object.values(S.companies).sort(function(a,b){return a.name.localeCompare(b.name);});
+    var allCts3=Object.values(S.contacts).sort(function(a,b){return a.name.localeCompare(b.name);});
+    var tpls3=getTemplates();
+    var coOpts3='<option value="'>— None —</option>'+allCos3.map(function(c){return '<option value="'+c.id+'"'+(data.coId===c.id?' selected':'')+'>'+escH(c.name)+'</option>';}).join('');
+    var ctOpts3='<option value="">— None —</option>'+allCts3.map(function(c){return '<option value="'+c.id+'"'+(data.contactId===c.id?' selected':'')+'>'+escH(c.name)+(c.companyName?' @ '+escH(c.companyName):'')+'</option>';}).join('');
+    var roleOpts3='<option value="">— None —</option>'+(data.coId&&eoCo?Object.values(eoCo.roles||{}).map(function(r){return '<option value="'+r.id+'"'+(data.roleId===r.id?' selected':'')+'>'+escH(r.name)+'</option>';}).join(''):'');
+    var tplOpts3='<option value="">— No template —</option>'+tpls3.map(function(t){return '<option value="'+t.id+'">'+escH(t.name)+'</option>';}).join('');
+    return '<div class="ct">&#9993;&#65039; Email Outreach</div>'
+      +(eoC&&eoC.email?'<div style="margin-bottom:8px;padding:8px 12px;background:rgba(42,26,10,.08);border-radius:6px;font-size:13px"><a href="mailto:'+eoC.email+'" style="color:var(--gold)">'+escH(eoC.email)+'</a></div>':'')
+      +'<div class="two">'
+      +'<div><label class="ilbl">Person</label><select class="sel-input" id="eoContact" onchange="updateEmailPreview()">'+ctOpts3+'</select></div>'
+      +'<div><label class="ilbl">Company</label><select class="sel-input" id="eoCoId" onchange="updateEmailRoles(this.value)">'+coOpts3+'</select></div>'
+      +'</div>'
+      +'<label class="ilbl">Role</label><select class="sel-input" id="eoRoleId" onchange="updateEmailPreview()">'+roleOpts3+'</select>'
+      +'<label class="ilbl">Template (optional)</label>'
+      +'<select class="sel-input" id="eoTemplate" onchange="updateEmailPreview()">'+tplOpts3+'</select>'
+      +'<div id="eoPreview" style="display:none;white-space:pre-wrap;font-size:12px;color:var(--il);padding:10px;background:rgba(42,26,10,.06);border:1px solid var(--gd);border-radius:4px;max-height:160px;overflow-y:auto;margin-bottom:8px;line-height:1.6"></div>'
+      +'<label class="ilbl">Subject</label><input class="ti" id="eoSubject" placeholder="Email subject line">'
+      +'<label class="ilbl">Notes</label><textarea class="ta" id="eoNotes" placeholder="Summary, key points, response expected\u2026" style="min-height:60px"></textarea>'
+      +'<label class="ilbl">Follow-Up Date</label><input class="ti" id="eoFollowUp" type="date">'
+      +'<div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button>'
+      +'<button class="btn" onclick="saveEmailOutreach(\''+( data.contactId||'')+'\',\''+( data.roleId||'')+'\',\''+( data.coId||'')+'\',event)">Log Email</button></div>';}
 
   if(type==='addFollowUp'){
     var fuCos=Object.values(S.companies).sort(function(a,b){return a.name.localeCompare(b.name);});
     var fuCts=Object.values(S.contacts).sort(function(a,b){return a.name.localeCompare(b.name);});
-    var coOpts='<option value="">— None —</option>'+fuCos.map(function(c){return '<option value="'+c.id+'">'+escH(c.name)+'</option>';}).join('');
-    var ctOpts='<option value="">— None —</option>'+fuCts.map(function(c){return '<option value="'+c.id+'">'+escH(c.name)+(c.companyName?' @ '+escH(c.companyName):'')+' </option>';}).join('');
-    return '<div class="ct">⏰ Add Follow-Up</div>'
+    return '<div class="ct">&#9200; Add Follow-Up</div>'
       +'<label class="ilbl">Label *</label><input class="ti" id="fuLabel" placeholder="e.g. Call Tracey Hughes" autofocus>'
       +'<label class="ilbl">Date *</label><input class="ti" id="fuDate" type="date">'
-      +'<label class="ilbl">Person (optional)</label><select class="sel-input" id="fuContactId" onchange="fuContactChanged(this.value)">'+ctOpts+'</select>'
-      +'<label class="ilbl">Company (optional)</label><select class="sel-input" id="fuCoId" onchange="fuCoChanged(this.value)">'+coOpts+'</select>'
-      +'<label class="ilbl">Role (optional)</label><select class="sel-input" id="fuRoleId"><option value="">— None —</option></select>'
-      +'<label class="ilbl">Notes</label><textarea class="ta" id="fuNotes" placeholder="Context or reminder…"></textarea>'
+      +'<label class="ilbl">Person (optional)</label>'
+      +'<select class="sel-input" id="fuContactId" onchange="fuContactChanged(this.value)"><option value="">— None —</option>'
+      +fuCts.map(function(c){return '<option value="'+c.id+'">'+escH(c.name)+(c.companyName?' @ '+escH(c.companyName):'')+' </option>';}).join('')+'</select>'
+      +'<label class="ilbl">Company (optional)</label>'
+      +'<select class="sel-input" id="fuCoId" onchange="fuCoChanged(this.value)"><option value="">— None —</option>'
+      +fuCos.map(function(c){return '<option value="'+c.id+'">'+escH(c.name)+'</option>';}).join('')+'</select>'
+      +'<label class="ilbl">Role (optional)</label>'
+      +'<select class="sel-input" id="fuRoleId"><option value="">— None —</option></select>'
+      +'<label class="ilbl">Notes</label><textarea class="ta" id="fuNotes" placeholder="Context or reminder\u2026"></textarea>'
       +'<div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button><button class="btn" onclick="addManualFollowUp()">Add</button></div>';}
 
   if(type==='addTemplate') return `<div class="ct">✉️ New Email Template</div>
@@ -1463,6 +1720,117 @@ function buildModal(type,data){
     <label class="ilbl">Subject Line</label><input class="ti" id="tplSubject" value="${escH(t.subject)}">
     <label class="ilbl">Body</label><textarea class="ta" id="tplBody" style="min-height:160px">${escH(t.body)}</textarea>
     <div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button><button class="btn" onclick="saveTemplate('${data.id}')">Save</button></div>`;}
+
+  if(type==='editCriteria'){
+    var c=getCriteria();
+    var senLevels=['Director','Senior Manager','Manager','VP','Individual Contributor'];
+    var senBoxes=senLevels.map(function(s){
+      var chk=(c.seniority||[]).indexOf(s)>-1?'checked':'';
+      return '<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="sen_'+s.replace(/ /g,'_')+'" '+chk+' style="accent-color:var(--gold)"> '+s+'</label>';
+    }).join('');
+    return '<div class="ct">&#127919; Job Search Criteria</div>'
+      +'<label class="ilbl">Target Titles (comma separated)</label>'
+      +'<input class="ti" id="critTitles" value="'+(c.titles?escH(c.titles.join(', ')):'')+'" placeholder="Director of Sales, Senior Manager, VP Sales">'
+      +'<label class="ilbl">Preferred Locations (comma separated)</label>'
+      +'<input class="ti" id="critLocs" value="'+(c.locations?escH(c.locations.join(', ')):'')+'" placeholder="Florida, Texas, North Carolina, Remote">'
+      +'<label class="ilbl">Seniority Level</label>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:10px;padding:8px;background:rgba(42,26,10,.06);border:1px solid var(--gd);border-radius:4px;margin-bottom:8px">'+senBoxes+'</div>'
+      +'<div class="two">'
+      +'<div><label class="ilbl">Min Pay ($k/yr)</label><input class="ti" id="critPayMin" type="number" value="'+(c.payMin||'')+'" placeholder="100"></div>'
+      +'<div><label class="ilbl">Max Pay ($k/yr)</label><input class="ti" id="critPayMax" type="number" value="'+(c.payMax||'')+'" placeholder="200"></div>'
+      +'</div>'
+      +'<label class="ilbl">Keywords to Match (comma separated)</label>'
+      +'<input class="ti" id="critKW" value="'+(c.keywords?escH(c.keywords.join(', ')):'')+'" placeholder="industrial distribution, MRO, safety, P&L">'
+      +'<label class="ilbl">Keywords to Exclude (comma separated)</label>'
+      +'<input class="ti" id="critEx" value="'+(c.exclude?escH(c.exclude.join(', ')):'')+'" placeholder="entry level, internship">'
+      +'<label class="ilbl">Remote Preference</label>'
+      +'<select class="sel-input" id="critRemote">'
+      +'<option value="">No preference</option>'
+      +'<option value="Remote OK" '+(c.remote==='Remote OK'?'selected':'')+'>Remote OK</option>'
+      +'<option value="Hybrid preferred" '+(c.remote==='Hybrid preferred'?'selected':'')+'>Hybrid preferred</option>'
+      +'<option value="On-site preferred" '+(c.remote==='On-site preferred'?'selected':'')+'>On-site preferred</option>'
+      +'<option value="Remote only" '+(c.remote==='Remote only'?'selected':'')+'>Remote only</option>'
+      +'</select>'
+      +'<div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button><button class="btn" onclick="saveCriteria()">Save Criteria</button></div>';}
+
+  if(type==='addPotentialRole'){
+    var prCos=Object.values(S.companies).sort(function(a,b){return a.name.localeCompare(b.name);});
+    return '<div class="ct">&#128269; Add Potential Role</div>'
+      +'<label class="ilbl">Role Title *</label><input class="ti" id="prName" placeholder="Director of Sales" autofocus>'
+      +'<label class="ilbl">Company</label>'
+      +'<input class="ti" id="prCoName" placeholder="Company name" list="prCoList">'
+      +'<datalist id="prCoList">'+prCos.map(function(c){return '<option value="'+escH(c.name)+'"></option>';}).join('')+'</datalist>'
+      +'<div class="two"><div><label class="ilbl">Location</label><input class="ti" id="prLocation" placeholder="Tampa, FL"></div>'
+      +'<div><label class="ilbl">Salary Range</label><input class="ti" id="prSalary" placeholder="$120k-$150k"></div></div>'
+      +'<label class="ilbl">Job Posting URL</label><input class="ti" id="prUrl" type="url" placeholder="https://...">'
+      +'<label class="ilbl">Description / Notes</label><textarea class="ta" id="prDesc" placeholder="Paste job description or notes…" style="min-height:80px"></textarea>'
+      +'<div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button><button class="btn" onclick="addPotentialRoleManual()">Add</button></div>';}
+
+  if(type==='logResponse'){
+    var ct=S.contacts[data.contactId];if(!ct)return '';
+    return '<div class="ct">&#128232; Log Response from '+escH(ct.name)+'</div>'
+      +'<div class="tinfo"><div class="tin">'+escH(ct.name)+'</div><div class="tic">'+(ct.title||'')+(ct.companyName?' @ '+ct.companyName:'')+'</div></div>'
+      +'<label class="ilbl">Response Type</label>'
+      +'<select class="sel-input" id="respType">'
+      +'<option value="Email Reply">Email Reply</option>'
+      +'<option value="Phone Call">Phone Call</option>'
+      +'<option value="Voicemail">Voicemail</option>'
+      +'<option value="LinkedIn Message">LinkedIn Message</option>'
+      +'<option value="No Response">No Response (logging for tracking)</option>'
+      +'<option value="Meeting Scheduled">Meeting Scheduled</option>'
+      +'</select>'
+      +'<label class="ilbl">Sentiment</label>'
+      +'<div style="display:flex;gap:8px;margin-bottom:10px">'
+      +'<label style="flex:1;text-align:center;padding:8px;border:2px solid var(--gd);border-radius:6px;cursor:pointer;font-family:\'Cinzel\',serif;font-size:12px" onclick="setSentiment(\'positive\',this)">&#128512; Positive</label>'
+      +'<label style="flex:1;text-align:center;padding:8px;border:2px solid var(--gd);border-radius:6px;cursor:pointer;font-family:\'Cinzel\',serif;font-size:12px" onclick="setSentiment(\'neutral\',this)">&#128528; Neutral</label>'
+      +'<label style="flex:1;text-align:center;padding:8px;border:2px solid var(--gd);border-radius:6px;cursor:pointer;font-family:\'Cinzel\',serif;font-size:12px" onclick="setSentiment(\'negative\',this)">&#128542; Negative</label>'
+      +'</div>'
+      +'<input type="hidden" id="respSentiment" value="neutral">'
+      +'<label class="ilbl">What They Said / Key Points</label>'
+      +'<textarea class="ta" id="respNotes" placeholder="Summarize the response, key points, objections, next steps suggested…" style="min-height:90px" autofocus></textarea>'
+      +'<label class="ilbl">Follow-Up Date</label><input class="ti" id="respFollowUp" type="date">'
+      +'<div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button>'
+      +'<button class="btn" onclick="saveResponseLog(\''+data.contactId+'\',event)">Log Response</button></div>';}
+
+  if(type==='editRoleResume'){
+    var role=S.companies[data.coId]&&S.companies[data.coId].roles[data.roleId];if(!role)return '';
+    var resumes=role.resumes||[];
+    var active=role.activeResume||'';
+    return '<div class="ct">&#128196; Resume for '+escH(role.name)+'</div>'
+      +(active?'<div style="margin-bottom:10px;padding:8px 12px;background:rgba(42,26,10,.06);border:1px solid var(--gd);border-radius:4px;font-size:13px">Current: <strong>'+escH(active)+'</strong></div>':'')
+      +(resumes.length?'<label class="ilbl">Select Existing Resume</label>'
+      +'<select class="sel-input" id="resumeSel"><option value="">— Upload new —</option>'
+      +resumes.map(function(r){return '<option value="'+escH(r.name)+'"'+(r.name===active?' selected':'')+'>'+escH(r.name)+'</option>';}).join('')
+      +'</select>':'')
+      +'<label class="ilbl">Upload New Resume</label>'
+      +'<div class="file-zone" onclick="document.getElementById(\'resumeFileInput\').click()">'
+      +'<input type="file" id="resumeFileInput" accept=".pdf,.doc,.docx,.txt" onchange="handleFileSelect(this)">'
+      +'<div class="fz-label">&#128193; Upload Resume</div><div class="fz-sub">PDF, Word, or text</div></div>'
+      +'<div id="filePreview"></div>'
+      +'<div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button>'
+      +'<button class="btn" onclick="saveRoleResume(\''+data.coId+'\',\''+data.roleId+'\')" >Save</button></div>';}
+
+  if(type==='copyTemplate'){
+    _ctx.tplId=data.tplId;
+    var t=getTemplates().find(function(x){return x.id===data.tplId;});if(!t)return '';
+    var allCos2=Object.values(S.companies).sort(function(a,b){return a.name.localeCompare(b.name);});
+    var allCts2=Object.values(S.contacts).sort(function(a,b){return a.name.localeCompare(b.name);});
+    return '<div class="ct">&#128203; Copy: '+escH(t.name)+'</div>'
+      +'<p class="note" style="margin-bottom:8px">Optionally select a person and role to auto-fill placeholders before copying.</p>'
+      +'<label class="ilbl">Person (optional)</label>'
+      +'<select class="sel-input" id="copyContactId" onchange="updateCopyPreview()"><option value="">— None —</option>'
+      +allCts2.map(function(c){return '<option value="'+c.id+'">'+escH(c.name)+(c.companyName?' @ '+escH(c.companyName):'')+' </option>';}).join('')
+      +'</select>'
+      +'<label class="ilbl">Company (optional)</label>'
+      +'<select class="sel-input" id="copyCoId" onchange="updateCopyRoles(this.value);updateCopyPreview()"><option value="">— None —</option>'
+      +allCos2.map(function(c){return '<option value="'+c.id+'">'+escH(c.name)+'</option>';}).join('')
+      +'</select>'
+      +'<label class="ilbl">Role (optional)</label>'
+      +'<select class="sel-input" id="copyRoleId" onchange="updateCopyPreview()"><option value="">— None —</option></select>'
+      +'<label class="ilbl">Preview</label>'
+      +'<div id="copyPreview" style="white-space:pre-wrap;font-size:12px;color:var(--il);padding:10px;background:rgba(42,26,10,.06);border:1px solid var(--gd);border-radius:4px;max-height:180px;overflow-y:auto;line-height:1.6">'+escH(t.body)+'</div>'
+      +'<div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button>'
+      +'<button class="btn" onclick="copyTemplateFilled(\''+data.tplId+'\')" >&#128203; Copy Body</button></div>';}
 
   if(type==='addCompany') return `<div class="ct">🏢 Add Target Company</div>
     <label class="ilbl">Company Name *</label><input class="ti" id="coName" autofocus>
@@ -1654,7 +2022,7 @@ if(!S.equipped)S.equipped={weapon:null,armor:null,pet:null,lodging:'tent',mount:
 if(!S.equipped.lodging)S.equipped.lodging='tent';
 if(!S.goals)S.goals={weekly_apply:5,weekly_network:3,weekly_outreach:5};
 if(!S.collapsed)S.collapsed={};
-if(!S.storeCat)S.storeCat='all';if(!S.followUps)S.followUps=[];if(!S.emailTemplates)S.emailTemplates=null;
+if(!S.storeCat)S.storeCat='all';if(!S.potentialRoles)S.potentialRoles=[];if(!S.searchCriteria)S.searchCriteria={};if(!S.followUps)S.followUps=[];if(!S.emailTemplates)S.emailTemplates=null;
 Object.values(S.companies||{}).forEach(co=>{
   if(co.hp!==undefined&&co.dmgDealt===undefined){co.dmgDealt=Math.max(0,(co.maxHp||CO_MAX)-(co.hp||0));co.maxHp=CO_MAX;delete co.hp;}
   if(!co.actLog)co.actLog=[];
@@ -1721,5 +2089,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#8a5500;opacity:.6;letter-spacing:2px">v2.9</div>
+<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#8a5500;opacity:.6;letter-spacing:2px">v3.0</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
