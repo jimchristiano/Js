@@ -1470,12 +1470,13 @@ async function forcePushOneDrive(){
   }catch(e){toast('\u26A0 Push error: '+e.message);}
 }
 function msReconnect(){
-  // Clear token and re-auth
+  // Clear stale token and re-trigger sign-in
   MSFT.token=null;MSFT.fileId=null;
   localStorage.removeItem('jsq_refresh');
-  renderSync();
-  toast('\uD83D\uDD04 Reconnecting...');
-  setTimeout(function(){MSFT.connect();},500);
+  localStorage.removeItem('jsq_msft');
+  MSFT.enabled=false;
+  renderSyncPanel();
+  toast('\uD83D\uDD04 Disconnected. Re-enter Client ID to reconnect.');
 }
 // ── Import Job Description from URL ─────────────────────────────
 function importJobDesc(coId,roleId){
@@ -2457,5 +2458,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v3.6</div>
+<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v3.7</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
