@@ -668,13 +668,57 @@ const MSFT={
     }catch(e){}
   },
 
+  async tryRefresh(){
+    const refresh=localStorage.getItem('jsq_refresh');
+    if(!refresh)return false;
+    try{
+      const cfg=JSON.parse(localStorage.getItem('jsq_msft')||'{}');
+      const resp=await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token',{
+        method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        body:'grant_type=refresh_token&refresh_token='+encodeURIComponent(refresh)
+          +'&client_id='+encodeURIComponent(cfg.clientId||'3f9abf5e-21e7-499b-90da-c9a1ebc2b6b2')
+          +'&scope='+encodeURIComponent('Files.ReadWrite offline_access')
+      });
+      if(!resp.ok)return false;
+      const data=await resp.json();
+      if(!data.access_token)return false;
+      this.token=data.access_token;
+      if(data.refresh_token)localStorage.setItem('jsq_refresh',data.refresh_token);
+      renderSync();return true;
+    }catch(e){return false;}
+  },
+  _mergeAndSave(remote){
+    // reuse the merge logic inline
+    try{
+      const merged=Object.assign({companies:{},contacts:{},gold:0,owned:[],equipped:{weapon:null,armor:null,pet:null,lodging:'tent',mount:null},goals:{weekly_apply:5,weekly_network:3,weekly_outreach:5},collapsed:{},dailyGoldClaimed:null,storeCat:'all',potentialRoles:[],searchCriteria:{}},remote);
+      merged.xp=Math.max(S.xp||0,remote.xp||0);
+      merged.level=Math.max(S.level||1,remote.level||1);
+      merged.totalActions=Math.max(S.totalActions||0,remote.totalActions||0);
+      S=merged;save();toast('\u2601\uFE0F Synced from OneDrive (refreshed)');return true;
+    }catch(e){return false;}
+  },
   async syncDown(){
+
     if(!this.enabled||!this.token)return false;
     try{
       const id=await this.findOrCreateFile();if(!id)return false;
       const resp=await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${id}/content`,{
         headers:{'Authorization':`Bearer ${this.token}`}
       });
+      if(resp.status===401){
+        // Try refresh token
+        const refreshed=await MSFT.tryRefresh();
+        if(refreshed){
+          const resp2=await fetch('https://graph.microsoft.com/v1.0/me/drive/items/'+id+'/content',{headers:{'Authorization':'Bearer '+MSFT.token}});
+          if(!resp2.ok)return false;
+          const text2=await resp2.text();if(!text2||text2==='{}'||text2.length<10)return false;
+          const remote=JSON.parse(text2);
+          return MSFT._mergeAndSave(remote);
+        }
+        toast('\u26A0 OneDrive token expired. Tap Reconnect.');
+        return false;
+      }
       if(!resp.ok)return false;
       const text=await resp.text();if(!text||text==='{}'||text.length<10)return false;
       const remote=JSON.parse(text);
@@ -726,6 +770,8 @@ function renderSyncPanel(){
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn bsm bgh" data-tip="Pull latest save from OneDrive now" onclick="MSFT.syncDown().then(()=>render())">☁️ Sync Now</button>
+      <button class="btn bsm bgh" title="Force push local data to OneDrive" onclick="forcePushOneDrive()">⬆️ Force Push</button>
+      <button class="btn bsm bgh" title="Reconnect / refresh token" onclick="msReconnect()">🔄 Reconnect</button>
         <button class="btn bsm bgh" data-tip="Disconnect OneDrive sync" onclick="MSFT.signOut()">Sign Out</button>
       </div>
     </div>`:`
@@ -751,6 +797,7 @@ function hpColor(d,m){const p=(d/m)*100;return p<30?'#2a7a2a':p<70?'#b8900a':'#8
 function fmt(n){return n>=1000?(Math.round(n/100)/10)+'k':n;}
 function ts(){return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}
 function ds(){return new Date().toLocaleDateString([],{month:'short',day:'numeric'});}
+function escHRaw(s){return (s||"").replace(/'/g,"\\'");}
 function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function contactsByCompany(coId){return Object.values(S.contacts).filter(c=>c.companyId===coId);}
 function allRoles(){const out=[];Object.values(S.companies).forEach(co=>{Object.values(co.roles||{}).forEach(r=>out.push({...r,companyId:co.id,companyName:co.name}));});return out;}
@@ -1387,6 +1434,87 @@ function fuCoChanged(coId){
   sel.innerHTML='<option value="">— None —</option>'+roles.map(function(r){return '<option value="'+r.id+'">'+escH(r.name)+'</option>';}).join('');
 }
 
+// ── Quick Follow-Up ──────────────────────────────────────────────
+function quickFollowUp(opts){
+  // opts: {coId, coName, roleId, roleName, contactId, contactName}
+  var d=new Date();d.setDate(d.getDate()+3);
+  var defaultDate=d.toISOString().split('T')[0];
+  _ctx.quickFuOpts=opts;
+  openModal('quickFollowUp',opts);
+}
+function saveQuickFollowUp(){
+  var opts=_ctx.quickFuOpts||{};
+  var date=_v('qfuDate');if(!date)return;
+  var label=_v('qfuLabel')||'Follow up'+(opts.contactName?' with '+opts.contactName:opts.roleName?' on '+opts.roleName:opts.coName?' with '+opts.coName:'');
+  if(!S.followUps)S.followUps=[];
+  S.followUps.push({id:uid(),label:label,date:date,notes:_v('qfuNotes'),
+    contactId:opts.contactId||null,contactName:opts.contactName||'',
+    coId:opts.coId||null,coName:opts.coName||'',
+    roleId:opts.roleId||null,roleName:opts.roleName||''});
+  save();render();closeModal();toast('\u23f0 Follow-up added!');
+}
+// ── Force Push / Reconnect ────────────────────────────────────────
+async function forcePushOneDrive(){
+  if(!MSFT.enabled||!MSFT.token){toast('\u26A0 Not connected to OneDrive');return;}
+  try{
+    const id=await MSFT.findOrCreateFile();
+    if(!id){toast('\u26A0 Could not find OneDrive file');return;}
+    const resp=await fetch('https://graph.microsoft.com/v1.0/me/drive/items/'+id+'/content',{
+      method:'PUT',
+      headers:{'Authorization':'Bearer '+MSFT.token,'Content-Type':'application/json'},
+      body:JSON.stringify(S)
+    });
+    if(resp.ok){toast('\u2B06\uFE0F Pushed to OneDrive!');}
+    else if(resp.status===401){toast('\u26A0 Token expired. Tap Reconnect.');}
+    else{toast('\u26A0 Push failed: '+resp.status);}
+  }catch(e){toast('\u26A0 Push error: '+e.message);}
+}
+function msReconnect(){
+  // Clear token and re-auth
+  MSFT.token=null;MSFT.fileId=null;
+  localStorage.removeItem('jsq_refresh');
+  renderSync();
+  toast('\uD83D\uDD04 Reconnecting...');
+  setTimeout(function(){MSFT.connect();},500);
+}
+// ── Import Job Description from URL ─────────────────────────────
+function importJobDesc(coId,roleId){
+  _ctx.importCoId=coId;_ctx.importRoleId=roleId;
+  openModal('importJobDesc',{coId:coId,roleId:roleId});
+}
+async function fetchJobDesc(){
+  var url=_v('ijdUrl');if(!url)return;
+  var btn=document.getElementById('ijdFetchBtn');
+  if(btn){btn.textContent='Fetching...';btn.disabled=true;}
+  try{
+    var resp=await fetch('https://corsproxy.io/?'+encodeURIComponent(url));
+    if(!resp.ok)throw new Error('Status '+resp.status);
+    var html=await resp.text();
+    // Strip HTML tags
+    var tmp=document.createElement('div');tmp.innerHTML=html;
+    var scripts=tmp.querySelectorAll('script,style,nav,header,footer');scripts.forEach(function(s){s.remove();});
+    var text=tmp.innerText||tmp.textContent||'';
+    // Trim to 3000 chars
+    text=text.replace(/\s+/g,' ').trim().slice(0,3000);
+    var ta=document.getElementById('ijdText');
+    if(ta){ta.value=text;ta.style.display='block';}
+    var fallback=document.getElementById('ijdFallback');if(fallback)fallback.style.display='none';
+  }catch(e){
+    // Show fallback paste box
+    var fallback=document.getElementById('ijdFallback');if(fallback)fallback.style.display='block';
+    var ta=document.getElementById('ijdText');if(ta)ta.style.display='block';
+    toast('\u26A0 Could not fetch URL. Paste the description below.');
+  }
+  if(btn){btn.textContent='Fetch';btn.disabled=false;}
+}
+function saveJobDesc(){
+  var coId=_ctx.importCoId;var roleId=_ctx.importRoleId;
+  var role=S.companies[coId]&&S.companies[coId].roles[roleId];if(!role)return;
+  var text=_fv('ijdText');if(!text){toast('\u26A0 No description to save');return;}
+  role.description=text;
+  role.url=_v('ijdUrl')||role.url||'';
+  save();render();closeModal();toast('\uD83D\uDCCB Job description saved!');
+}
 function render(){
   const rank=getRank(),needed=xpForLvl(S.level),pct=Math.min(100,Math.round(S.xp/needed*100));
   document.getElementById('hAv').childNodes[0].textContent=rank.avatar;
@@ -1653,6 +1781,7 @@ function renderArena(){
             <div style="display:flex;gap:4px;margin-top:5px" onclick="event.stopPropagation()">
               <button class="btn bsm bgh" title="Log phone call" style="font-size:10px;padding:2px 7px" onclick="openModal('phoneOutreach',{contactId:'${c.id}'})">📞</button>
               <button class="btn bsm bgh" title="Log email" style="font-size:10px;padding:2px 7px" onclick="openModal('emailOutreach',{contactId:'${c.id}'})">✉️</button>
+              <button class="btn bsm bgh" title="Add follow-up" style="font-size:10px;padding:2px 6px" onclick="quickFollowUp({contactId:'${c.id}',contactName:escHRaw(c.name),coId:'${co.id}',coName:escHRaw(co.name)})">⏰</button>
             </div></div></div>`;}).join('')}
         <div class="npc-chip" onclick="openModal('editNPC',{coId:'${co.id}'})"><span>➕</span><div><div class="nc-name">Add NPC</div></div></div>
       </div></div>`;
@@ -1684,6 +1813,8 @@ function renderArena(){
                 ${r.resumes&&r.resumes.length?`<button class="btn bsm bgh" title="View submitted resumes" style="padding:3px 8px;font-size:11px" onclick="openModal('viewResumes',{coId:'${co.id}',roleId:'${r.id}'})">📄${r.resumes.length}</button>`:''}
                 <button class="btn bsm bgh" title="Edit this role" style="padding:3px 8px;font-size:11px" onclick="openModal('editRole',{coId:'${co.id}',roleId:'${r.id}'})">✏️</button>
                 <button class="btn bsm bgh" title="Log phone call for this role" style="padding:3px 8px;font-size:11px" onclick="openModal('phoneOutreach',{roleId:'${r.id}',coId:'${co.id}'})">📞</button>
+                <button class="btn bsm bgh" title="Add follow-up" style="padding:3px 8px;font-size:11px" onclick="quickFollowUp({roleId:'${r.id}',roleName:escHRaw(r.name),coId:'${co.id}',coName:escHRaw(co.name)})">⏰</button>
+                <button class="btn bsm bgh" title="Import job description" style="padding:3px 8px;font-size:11px" onclick="importJobDesc('${co.id}','${r.id}')">📋</button>
                 <button class="btn bsm bgh" title="Log email for this role" style="padding:3px 8px;font-size:11px" onclick="openModal('emailOutreach',{roleId:'${r.id}',coId:'${co.id}'})">✉️</button>
               </div>
             </div>
@@ -1710,6 +1841,7 @@ function renderArena(){
             <button class="btn bsm bgh" title="Log email outreach" onclick="openModal('emailOutreach',{coId:'${co.id}'})">✉️</button>
             <button class="btn bsm bgh" title="View activity log" style="font-size:11px" onclick="openModal('viewLog',{coId:'${co.id}',title:'${escH(co.name)}'})">📋 Log</button>
             <button class="btn bsm bgh" title="Edit company" style="font-size:11px" onclick="openModal(\'editCompany\',{coId:\'${co.id}\'})">✏️</button>
+            <button class="btn bsm bgh" title="Add follow-up" style="font-size:11px" onclick="quickFollowUp({coId:\'${co.id}\',coName:escHRaw(co.name)})">\u23f0</button>
           </div>
         </div>
       </div>
@@ -1871,6 +2003,39 @@ function buildModal(type,data){
     emailHtml+='<label class="ilbl">Follow-Up Date</label><input class="ti" id="eoFollowUp" type="date">';
     emailHtml+='<div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button><button class="btn" onclick="saveEmailOutreach(\''+( data.contactId||'')+'\',\''+( data.roleId||'')+'\',\''+( data.coId||'')+'\',event)">Log Email</button></div>';
     return emailHtml;}
+
+  if(type==='importJobDesc'){
+    var role=S.companies[data.coId]&&S.companies[data.coId].roles[data.roleId];if(!role)return '';
+    return '<div class="ct">\uD83D\uDCCB Job Description: '+escH(role.name)+'</div>'
+      +'<label class="ilbl">Job Posting URL</label>'
+      +'<div style="display:flex;gap:6px;margin-bottom:8px">'
+      +'<input class="ti" id="ijdUrl" value="'+escH(role.url||'')+'" placeholder="https://..." style="margin:0;flex:1">'
+      +'<button class="btn" id="ijdFetchBtn" onclick="fetchJobDesc()">Fetch</button>'
+      +'</div>'
+      +'<div id="ijdFallback" style="display:none;font-size:12px;color:#c0392b;padding:6px 8px;background:rgba(192,57,43,.1);border-radius:4px;margin-bottom:6px">\u26A0 Could not fetch the URL automatically. Paste the job description below.</div>'
+      +'<label class="ilbl">Description</label>'
+      +'<textarea class="ta" id="ijdText" style="min-height:120px;'+(role.description?'':'display:none')+'">'+escH(role.description||'')+'</textarea>'
+      +'<div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button>'
+      +'<button class="btn" onclick="saveJobDesc()">Save Description</button></div>';}
+
+  if(type==='quickFollowUp'){
+    var d=new Date();d.setDate(d.getDate()+3);
+    var defDate=d.toISOString().split('T')[0];
+    var title='\u23f0 Follow-Up';
+    var subtitle='';
+    if(data.contactName)subtitle='\uD83D\uDC64 '+data.contactName+(data.coName?' @ '+data.coName:'');
+    else if(data.roleName)subtitle='\uD83C\uDFAF '+data.roleName+(data.coName?' @ '+data.coName:'');
+    else if(data.coName)subtitle='\uD83C\uDFE2 '+data.coName;
+    return '<div class="ct">'+title+'</div>'
+      +(subtitle?'<div class="tinfo"><div class="tic">'+escH(subtitle)+'</div></div>':'')
+      +'<label class="ilbl">Label</label>'
+      +'<input class="ti" id="qfuLabel" placeholder="e.g. Call to follow up on interview" autofocus>'
+      +'<label class="ilbl">Date *</label>'
+      +'<input class="ti" id="qfuDate" type="date" value="'+defDate+'">'
+      +'<label class="ilbl">Notes (optional)</label>'
+      +'<textarea class="ta" id="qfuNotes" placeholder="Reminder or context..." style="min-height:60px"></textarea>'
+      +'<div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button>'
+      +'<button class="btn" onclick="saveQuickFollowUp()">\u23f0 Add Follow-Up</button></div>';}
 
   if(type==='addFollowUp'){
     var fuCos=Object.values(S.companies).sort(function(a,b){return a.name.localeCompare(b.name);});
@@ -2292,5 +2457,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v3.5</div>
+<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v3.6</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
