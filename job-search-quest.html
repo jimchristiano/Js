@@ -1492,7 +1492,6 @@ function msReconnect(){
 }
 // ── Import Job Description from URL ─────────────────────────────
 function importJobDesc(coId,roleId){
-  _ctx.importCoId=coId;_ctx.importRoleId=roleId;
   openModal('importJobDesc',{coId:coId,roleId:roleId});
 }
 async function fetchJobDesc(){
@@ -1521,7 +1520,7 @@ async function fetchJobDesc(){
   if(btn){btn.textContent='Fetch';btn.disabled=false;}
 }
 function saveJobDesc(){
-  var coId=_ctx.importCoId;var roleId=_ctx.importRoleId;
+  var coId=_ctx.importCoId||_ctx.coId;var roleId=_ctx.importRoleId||_ctx.roleId;
   var role=S.companies[coId]&&S.companies[coId].roles[roleId];if(!role)return;
   var text=_fv('ijdText');if(!text){toast('\u26A0 No description to save');return;}
   role.description=text;
