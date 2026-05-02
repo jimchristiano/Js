@@ -1827,7 +1827,7 @@ function renderArena(){
                 <button class="btn bsm bgh" title="Edit this role" style="padding:3px 8px;font-size:11px" onclick="openModal('editRole',{coId:'${co.id}',roleId:'${r.id}'})">✏️</button>
                 <button class="btn bsm bgh" title="Log phone call for this role" style="padding:3px 8px;font-size:11px" onclick="openModal('phoneOutreach',{roleId:'${r.id}',coId:'${co.id}'})">📞</button>
                 <button class="btn bsm bgh" title="Add follow-up" style="padding:3px 8px;font-size:11px" onclick="quickFollowUp({roleId:'${r.id}',roleName:'${escHRaw(r.name)}',coId:'${co.id}',coName:'${escHRaw(co.name)}'})">⏰</button>
-                <button class="btn bsm bgh" title="Import job description" style="padding:3px 8px;font-size:11px" onclick="importJobDesc('${co.id}','${r.id}')">📋</button>
+                <button class="btn bsm bgh" title="Import job description" style="padding:3px 8px;font-size:11px" onclick="importJobDesc('${co.id}','${r.id}')">📝</button>
                 <button class="btn bsm bgh" title="Log email for this role" style="padding:3px 8px;font-size:11px" onclick="openModal('emailOutreach',{roleId:'${r.id}',coId:'${co.id}'})">✉️</button>
               </div>
             </div>
