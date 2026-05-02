@@ -232,6 +232,24 @@ body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100
 .resp-positive{color:#27ae60;font-weight:700}
 .resp-neutral{color:#8a5500;font-weight:700}
 .resp-negative{color:#c0392b;font-weight:700}
+/* Company Tile Grid */
+.co-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+@media(max-width:480px){.co-grid{grid-template-columns:1fr;}}
+.co-tile{border:2px solid #6b1a1a;border-radius:8px;overflow:hidden;transition:border-color .2s;}
+.co-tile.milestone{border-color:#2a5a2a;}
+.co-tile.expanded{grid-column:1/-1;}
+.co-tile-head{padding:10px 12px;background:#1e0808;display:flex;align-items:center;gap:10px;cursor:pointer;}
+.co-tile.milestone .co-tile-head{background:#0f2a0f;}
+.co-tile-name{font-family:'Cinzel',serif;font-size:14px;font-weight:700;color:#f0d890;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.co-tile-stats{display:flex;gap:8px;font-size:11px;color:#a07030;font-family:'Cinzel',serif;flex-shrink:0;align-items:center;}
+.co-tile-hpbar{height:4px;background:rgba(255,255,255,.08);}
+.co-tile-hpfill{height:100%;transition:width .3s;}
+.co-tile-body{display:none;border-top:1px solid rgba(107,26,26,.4);}
+.co-tile.expanded .co-tile-body{display:block;}
+.co-tile-actions{display:flex;gap:5px;flex-wrap:wrap;padding:8px 12px;background:rgba(30,8,8,.6);border-bottom:1px solid rgba(107,26,26,.25);align-items:center;}
+.co-name-exp{font-family:'Cinzel',serif;font-size:13px;font-weight:700;color:#f0d890;flex:1;}
+.bred{background:rgba(180,30,30,.3)!important;border-color:rgba(180,30,30,.5)!important;}
+
 </style>
 </head>
 <body>
@@ -333,6 +351,7 @@ body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100
         <option value="rejected">Rejected</option><option value="withdrawn">Withdrawn</option>
         <option value="closed">Closed</option>
       </select>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--il);cursor:pointer;font-family:'Cinzel',serif;white-space:nowrap"><input type="checkbox" id="hideRejected" onchange="renderArena()" style="accent-color:var(--gold)"> Hide Rejected</label>
     </div>
     <div id="arena"><div class="empty">No targets yet.</div></div>
   </div>
@@ -843,7 +862,7 @@ function equip(itemId){
 
 function addGold(amount,reason,x,y){
   if(amount<=0)return;
-  S.gold=(S.gold||0)+amount;
+  S.gold=Math.round((S.gold||0)+amount);
   // visual effect
   if(x&&y)goldFly(x,y);
   return amount;
@@ -1539,7 +1558,7 @@ function render(){
   document.getElementById('sQ').textContent=S.totalActions;
   document.getElementById('sStr').textContent=S.streak;
   document.getElementById('sGold').textContent=S.gold;
-  document.getElementById('storeGold').textContent=S.gold;
+  document.getElementById('storeGold').textContent=Math.round(S.gold);
 
   // Pet display
   const petId=S.equipped.pet;const petEl=document.getElementById('heroPet');
@@ -1764,105 +1783,165 @@ function renderStore(){
 
 function setStoreCat(cat){S.storeCat=cat;save();renderStore();}
 
-function renderArena(){
-  const sq=(document.getElementById('searchInput')?.value||'').toLowerCase();
-  const fs=document.getElementById('filterStatus')?.value||'';
-  const cos=Object.values(S.companies).filter(co=>{
-    if(!sq&&!fs)return true;
-    const roles=Object.values(co.roles||{});
-    return(co.name.toLowerCase().includes(sq)||roles.some(r=>r.name.toLowerCase().includes(sq)||(r.location||'').toLowerCase().includes(sq))||contactsByCompany(co.id).some(c=>c.name.toLowerCase().includes(sq)))
-      &&(!fs||roles.some(r=>(r.status||'active')===fs));
-  });
-  const el=document.getElementById('arena');
-  if(!cos.length){el.innerHTML='<div class="empty">No companies yet. Add one to begin the siege.</div>';return;}
-  el.innerHTML=cos.map(co=>{
-    const roles=Object.values(co.roles||{}).filter(r=>!fs||(r.status||'active')===fs);
-    const contacts=contactsByCompany(co.id);
-    const pct=Math.min(100,(co.dmgDealt/co.maxHp)*100);
-    const milestone=co.dmgDealt>=co.maxHp;
-    const isCol=S.collapsed[co.id];
-    const lastHit=co.actLog&&co.actLog[0]?`Last: ${co.actLog[0].questName} (${co.actLog[0].time})`:'';
-
-    const contactsHtml=`<div class="npc-section"><div class="rlbl">NPCs</div>
-      <div class="npc-grid">
-        ${contacts.map(c=>{const rel=c.relationship||1;const cc=rel>=4?'npc-chip hot':rel>=3?'npc-chip warm':'npc-chip';
-          return `<div class="${cc}" onclick="openModal('viewNPC',{id:'${c.id}'})"><span>👤</span>
-            <div><div class="nc-name">${escH(c.name)}</div>
-            <div class="nc-title">${escH(c.title||'')}${c.city?' · '+escH(c.city):''}</div>
-            <div style="font-size:11px">${'●'.repeat(rel)}${'○'.repeat(5-rel)}</div>
-            <div style="display:flex;gap:4px;margin-top:5px" onclick="event.stopPropagation()">
-              <button class="btn bsm bgh" title="Log phone call" style="font-size:10px;padding:2px 7px" onclick="openModal('phoneOutreach',{contactId:'${c.id}'})">📞</button>
-              <button class="btn bsm bgh" title="Log email" style="font-size:10px;padding:2px 7px" onclick="openModal('emailOutreach',{contactId:'${c.id}'})">✉️</button>
-              <button class="btn bsm bgh" title="Add follow-up" style="font-size:10px;padding:2px 6px" onclick="quickFollowUp({contactId:'${c.id}',contactName:'${escHRaw(c.name)}',coId:'${co.id}',coName:'${escHRaw(co.name)}'})">⏰</button>
-            </div></div></div>`;}).join('')}
-        <div class="npc-chip" onclick="openModal('editNPC',{coId:'${co.id}'})"><span>➕</span><div><div class="nc-name">Add NPC</div></div></div>
-      </div></div>`;
-
-    const rolesHtml=roles.length?`<div class="rs"><div class="rlbl">ROLES / MINI-BOSSES</div>
-      ${roles.map(r=>{
-        const rPct=Math.min(100,(r.dmgDealt/r.maxHp)*100);
-        const st=r.status||'active';
-        const dId='d_'+r.id;
-        const rcBg=st==='rejected'?'rgba(60,60,60,.12)':st==='offer'?'rgba(26,90,42,.08)':'rgba(139,26,26,.07)';
-        const rcB=st==='rejected'?'rgba(100,100,100,.3)':st==='offer'?'rgba(26,90,42,.3)':'rgba(139,26,26,.25)';
-        return `<div class="rc" style="background:${rcBg};border-color:${rcB}">
-          <div class="rh">
-            <span style="font-size:18px;flex-shrink:0">${st==='rejected'?'💀':st==='offer'?'🏆':'👤'}</span>
-            <div style="flex:1;min-width:100px">
-              <div class="rname">${escH(r.name)}<span class="status-badge ${STATUS_COLORS[st]}">${STATUS_LABELS[st]}</span></div>
-              ${r.location?`<div class="rloc">📍 ${escH(r.location)}</div>`:''}
-              ${r.salary?`<div class="salary-tag">💰 ${escH(r.salary)}</div>`:''}
-              ${r.deadline?`<div class="deadline-tag">⏳ ${r.deadline}</div>`:''}
-              ${r.followUpDate?`<div class="remind-flag ${new Date(r.followUpDate)<new Date()?'overdue':''}">⏰ ${r.followUpDate}</div>`:''}
-              <div class="rsub" style="margin-top:3px">${fmt(r.dmgDealt)} / ${fmt(r.maxHp)} DMG</div>
-              <div class="hprbg"><div class="hpfill" style="width:${rPct}%;background:${hpColor(r.dmgDealt,r.maxHp)}"></div></div>
-              ${r.actLog&&r.actLog[0]?`<div style="font-size:9px;color:#999;margin-top:2px">${r.actLog.length} interactions · Last: ${r.actLog[0].questName}</div>`:''}
-              <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px">
-                ${r.url?`<a href="${r.url}" target="_blank" class="clink">🔗</a>`:''}
-                ${r.description?`<button class="btn bsm bgh" style="padding:3px 8px;font-size:10px" onclick="toggleEl('${dId}')">📄</button>`:''}
-                ${r.importStatus==='loading'?`<span><span class="spin"></span></span>`:''}
-                <button class="btn bsm bgh" title="View activity log" style="padding:3px 8px;font-size:11px" onclick="openModal('viewLog',{log:JSON.stringify((S.companies['${co.id}']||{roles:{}}).roles['${r.id}']?.actLog||[]),title:'${escH(r.name)}'})">📋</button>
-                ${r.resumes&&r.resumes.length?`<button class="btn bsm bgh" title="View submitted resumes" style="padding:3px 8px;font-size:11px" onclick="openModal('viewResumes',{coId:'${co.id}',roleId:'${r.id}'})">📄${r.resumes.length}</button>`:''}
-                <button class="btn bsm bgh" title="Edit this role" style="padding:3px 8px;font-size:11px" onclick="openModal('editRole',{coId:'${co.id}',roleId:'${r.id}'})">✏️</button>
-                <button class="btn bsm bgh" title="Log phone call for this role" style="padding:3px 8px;font-size:11px" onclick="openModal('phoneOutreach',{roleId:'${r.id}',coId:'${co.id}'})">📞</button>
-                <button class="btn bsm bgh" title="Add follow-up" style="padding:3px 8px;font-size:11px" onclick="quickFollowUp({roleId:'${r.id}',roleName:'${escHRaw(r.name)}',coId:'${co.id}',coName:'${escHRaw(co.name)}'})">⏰</button>
-                <button class="btn bsm bgh" title="Import job description" style="padding:3px 8px;font-size:11px" onclick="importJobDesc('${co.id}','${r.id}')">📝</button>
-                <button class="btn bsm bgh" title="Log email for this role" style="padding:3px 8px;font-size:11px" onclick="openModal('emailOutreach',{roleId:'${r.id}',coId:'${co.id}'})">✉️</button>
-              </div>
-            </div>
-            <button class="btn bsm bred" style="margin-left:4px;flex-shrink:0" onclick="openQuestModal(null,'${r.id}','${co.id}')">⚔</button>
-          </div>
-          ${r.description?`<div class="rdesc" id="${dId}">${escH(r.description).replace(/\n/g,'<br>')}</div>`:''}
-        </div>`;}).join('')}
-    </div>`:'';
-
-    return `<div class="cb" style="border-color:${milestone?'#2a5a2a':'#6b1a1a'}">
-      <div class="ch" style="background:${milestone?'#0f2a0f':'#1e0808'}" onclick="toggleCollapse('${co.id}')">
-        <div class="chr">
-          <span style="font-size:22px;flex-shrink:0">${milestone?'✅':'🏢'}</span>
-          <div style="flex:1;min-width:120px">
-            <div class="cn">${escH(co.name)} <span style="font-size:12px;opacity:.6">${isCol?'▶':'▼'}</span></div>
-            ${co.careersUrl?`<a href="${co.careersUrl}" target="_blank" class="clink" onclick="event.stopPropagation()">🔗 Careers</a>`:''}
-            <div class="csub">${fmt(co.dmgDealt)}/${fmt(co.maxHp)} DMG · ${Object.keys(co.roles||{}).length} roles · ${contacts.length} NPCs</div>
-            <div class="hpbg"><div class="hpfill" style="width:${pct}%;background:${hpColor(co.dmgDealt,co.maxHp)}"></div></div>
-            ${lastHit?`<div style="font-size:9px;color:#777;margin-top:2px">${lastHit}</div>`:''}
-          </div>
-          <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0" onclick="event.stopPropagation()">
-            <button class="btn bsm bgh" title="Add a new role at this company" onclick="openAddRoleModal('${co.id}','${escH(co.name)}')">+ Role</button>
-            <button class="btn bsm bgh" title="Log phone outreach" onclick="openModal('phoneOutreach',{coId:'${co.id}'})">📞</button>
-            <button class="btn bsm bgh" title="Log email outreach" onclick="openModal('emailOutreach',{coId:'${co.id}'})">✉️</button>
-            <button class="btn bsm bgh" title="View activity log" style="font-size:11px" onclick="openModal('viewLog',{coId:'${co.id}',title:'${escH(co.name)}'})">📋 Log</button>
-            <button class="btn bsm bgh" title="Edit company" style="font-size:11px" onclick="openModal(\'editCompany\',{coId:\'${co.id}\'})">✏️</button>
-            <button class="btn bsm bgh" title="Add follow-up" style="font-size:11px" onclick="quickFollowUp({coId:\'${co.id}\',coName:\'${escHRaw(co.name)}\'})">\u23f0</button>
-          </div>
-        </div>
-      </div>
-      <div class="co-body ${isCol?'collapsed':''}">
-        ${contactsHtml}${rolesHtml}
-      </div>
-    </div>`;
-  }).join('');
+function toggleCoTile(coId){
+  if(!S.collapsed)S.collapsed={};
+  S.collapsed[coId]=S.collapsed[coId]==='expanded'?null:'expanded';
+  save();renderArena();
 }
+function confirmDeleteRole(coId,roleId,roleName){
+  if(confirm('Delete "'+roleName+'"? This cannot be undone.')){deleteRole(coId,roleId);}
+}
+function deleteRole(coId,roleId){
+  var co=S.companies[coId];if(!co)return;
+  delete co.roles[roleId];
+  save();render();toast('Role deleted');
+}
+// New renderArena - uses innerHTML with backtick template strings
+// All ID embedding uses template literals (backtick) which handle escaping correctly
+function renderArena(){
+  var sq=(document.getElementById('searchInput')?document.getElementById('searchInput').value:'').toLowerCase();
+  var fs=document.getElementById('filterStatus')?document.getElementById('filterStatus').value:'';
+  var hideRej=document.getElementById('hideRejected')?document.getElementById('hideRejected').checked:false;
+  var cos=Object.values(S.companies).filter(function(co){
+    if(!sq&&!fs)return true;
+    var roles=Object.values(co.roles||{});
+    return(co.name.toLowerCase().indexOf(sq)>-1||roles.some(function(r){return r.name.toLowerCase().indexOf(sq)>-1||(r.location||'').toLowerCase().indexOf(sq)>-1;})||contactsByCompany(co.id).some(function(c){return c.name.toLowerCase().indexOf(sq)>-1;}))
+      &&(!fs||roles.some(function(r){return(r.status||'active')===fs;}));
+  });
+  cos.sort(function(a,b){
+    return((b.dmgDealt||0)+Object.keys(b.roles||{}).length*10)-((a.dmgDealt||0)+Object.keys(a.roles||{}).length*10);
+  });
+  var el=document.getElementById('arena');
+  if(!cos.length){el.innerHTML='<div class="empty">No companies yet.</div>';return;}
+  var html='<div class="co-grid">';
+  cos.forEach(function(co){
+    var allRoles=Object.values(co.roles||{});
+    var roles=allRoles.filter(function(r){
+      if(hideRej&&(r.status||'active')==='rejected')return false;
+      if(fs&&(r.status||'active')!==fs)return false;
+      return true;
+    });
+    var contacts=contactsByCompany(co.id);
+    var pct=Math.min(100,(co.dmgDealt/co.maxHp)*100);
+    var milestone=co.dmgDealt>=co.maxHp;
+    var isExp=S.collapsed[co.id]==='expanded';
+    var rejCount=allRoles.filter(function(r){return(r.status||'active')==='rejected';}).length;
+    var activeCount=allRoles.filter(function(r){return(r.status||'active')!=='rejected';}).length;
+    var hpFill=hpColor(co.dmgDealt,co.maxHp);
+    var cid=escHRaw(co.id);
+    var cn=escH(co.name);
+    var statusBadge=co.status&&co.status!=='active'?'<span class="st-badge st-'+co.status+'" style="font-size:9px">'+co.status+'</span>':'';
+
+    var tile='<div class="co-tile'+(milestone?' milestone':'')+(isExp?' expanded':'')+'" id="tile_'+cid+'">';
+
+    // Tile head (always visible, click to expand)
+    tile+='<div class="co-tile-head" onclick="toggleCoTile(this.closest(\'.co-tile\').id.slice(5))">';
+    tile+='<span style="font-size:18px;flex-shrink:0">'+(milestone?'&#9989;':'&#127962;')+'</span>';
+    tile+='<div style="flex:1;min-width:0">';
+    tile+='<div class="co-tile-name">'+cn+' '+statusBadge;
+    tile+='<span style="font-size:11px;opacity:.5;margin-left:4px">'+(isExp?'&#9660;':'&#9654;')+'</span></div>';
+    tile+='<div class="co-tile-stats">';
+    tile+='<span>&#127919; '+activeCount+'</span>';
+    tile+='<span>&#128100; '+contacts.length+'</span>';
+    if(rejCount&&!hideRej)tile+='<span style="color:#666">&#128128; '+rejCount+'</span>';
+    tile+='<span style="color:#a07030">'+Math.round(co.dmgDealt)+' dmg</span>';
+    tile+='</div></div></div>';
+    tile+='<div class="co-tile-hpbar"><div class="co-tile-hpfill" style="width:'+pct+'%;background:'+hpFill+'"></div></div>';
+
+    if(!isExp){tile+='</div>';html+=tile;return;}
+
+    // Expanded body
+    tile+='<div class="co-tile-body">';
+
+    // Action bar
+    tile+='<div class="co-tile-actions">';
+    tile+='<span class="co-name-exp">'+cn+'</span>';
+    if(co.careersUrl)tile+='<a href="'+escH(co.careersUrl)+'" target="_blank" class="btn bsm bgh" style="text-decoration:none;font-size:10px" onclick="event.stopPropagation()">&#128279; Careers</a>';
+    tile+='<button class="btn bsm bgh" onclick="openAddRoleModal(\''+cid+'\',\''+escHRaw(co.name)+'\')">+ Role</button>';
+    tile+='<button class="btn bsm bgh" title="Log call" onclick="openModal(\'phoneOutreach\',{coId:\''+cid+'\'})">&#128222;</button>';
+    tile+='<button class="btn bsm bgh" title="Log email" onclick="openModal(\'emailOutreach\',{coId:\''+cid+'\'})">&#9993;&#65039;</button>';
+    tile+='<button class="btn bsm bgh" title="Activity log" onclick="openModal(\'viewLog\',{coId:\''+cid+'\',title:\''+escHRaw(co.name)+'\'})">&#128203;</button>';
+    tile+='<button class="btn bsm bgh" title="Edit company" onclick="openModal(\'editCompany\',{coId:\''+cid+'\'})">&#9999;&#65039;</button>';
+    tile+='<button class="btn bsm bgh" title="Add follow-up" onclick="quickFollowUp({coId:\''+cid+'\',coName:\''+escHRaw(co.name)+'\'})">&#9200;</button>';
+    tile+='</div>';
+
+    // Content area
+    tile+='<div style="padding:10px 12px">';
+
+    // NPC chips
+    tile+='<div class="npc-section"><div class="rlbl">NPCs</div><div class="npc-grid">';
+    contacts.forEach(function(c){
+      var rel=c.relationship||1;
+      var cc=rel>=4?'npc-chip hot':rel>=3?'npc-chip warm':'npc-chip';
+      var ctid=escHRaw(c.id);
+      var ctn=escHRaw(c.name);
+      tile+='<div class="'+cc+'" onclick="openModal(\'viewNPC\',{id:\''+ctid+'\'})">';
+      tile+='<span>&#128100;</span><div>';
+      tile+='<div class="nc-name">'+escH(c.name)+'</div>';
+      tile+='<div class="nc-title">'+escH(c.title||'')+(c.city?' &middot; '+escH(c.city):'')+'</div>';
+      tile+='<div style="font-size:11px">'+'\u25cf'.repeat(rel)+'\u25cb'.repeat(5-rel)+'</div>';
+      tile+='<div style="display:flex;gap:4px;margin-top:5px" onclick="event.stopPropagation()">';
+      tile+='<button class="btn bsm bgh" title="Log call" style="font-size:10px;padding:2px 7px" onclick="openModal(\'phoneOutreach\',{contactId:\''+ctid+'\'})">&#128222;</button>';
+      tile+='<button class="btn bsm bgh" title="Log email" style="font-size:10px;padding:2px 7px" onclick="openModal(\'emailOutreach\',{contactId:\''+ctid+'\'})">&#9993;&#65039;</button>';
+      tile+='<button class="btn bsm bgh" title="Follow-up" style="font-size:10px;padding:2px 6px" onclick="quickFollowUp({contactId:\''+ctid+'\',contactName:\''+ctn+'\',coId:\''+cid+'\',coName:\''+escHRaw(co.name)+'\'})">&#9200;</button>';
+      tile+='<button class="btn bsm bgh" title="Log response" style="font-size:10px;padding:2px 5px" onclick="openModal(\'logResponse\',{contactId:\''+ctid+'\'})">&#128232;</button>';
+      tile+='</div></div></div>';
+    });
+    tile+='<div class="npc-chip" onclick="openModal(\'editNPC\',{coId:\''+cid+'\'})"><span>&#10133;</span><div><div class="nc-name">Add NPC</div></div></div>';
+    tile+='</div></div>';
+
+    // Role cards
+    if(roles.length){
+      tile+='<div class="rs"><div class="rlbl">ROLES / MINI-BOSSES</div>';
+      roles.forEach(function(r){
+        var rPct=Math.min(100,(r.dmgDealt/r.maxHp)*100);
+        var st=r.status||'active';
+        var dId='d_'+r.id;
+        var rid=escHRaw(r.id);
+        var rn=escHRaw(r.name);
+        var rcBg=st==='rejected'?'rgba(60,60,60,.12)':st==='offer'?'rgba(26,90,42,.08)':'rgba(139,26,26,.07)';
+        var rcB=st==='rejected'?'rgba(100,100,100,.3)':st==='offer'?'rgba(26,90,42,.3)':'rgba(139,26,26,.25)';
+        tile+='<div class="rc" style="background:'+rcBg+';border-color:'+rcB+'">';
+        tile+='<div class="rh">';
+        tile+='<span style="font-size:18px;flex-shrink:0">'+(st==='rejected'?'&#128128;':st==='offer'?'&#127942;':'&#128100;')+'</span>';
+        tile+='<div style="flex:1;min-width:100px">';
+        tile+='<div class="rname">'+escH(r.name)+'<span class="status-badge '+STATUS_COLORS[st]+'">'+STATUS_LABELS[st]+'</span></div>';
+        if(r.location)tile+='<div class="rloc">&#128205; '+escH(r.location)+'</div>';
+        if(r.salary)tile+='<div class="salary-tag">&#128176; '+escH(r.salary)+'</div>';
+        if(r.deadline)tile+='<div class="deadline-tag">&#9203; '+r.deadline+'</div>';
+        if(r.followUpDate)tile+='<div class="remind-flag '+(new Date(r.followUpDate)<new Date()?'overdue':'')+'">&#9200; '+r.followUpDate+'</div>';
+        tile+='<div class="rsub" style="margin-top:3px">'+fmt(r.dmgDealt)+' / '+fmt(r.maxHp)+' DMG</div>';
+        tile+='<div class="hprbg"><div class="hpfill" style="width:'+rPct+'%;background:'+hpColor(r.dmgDealt,r.maxHp)+'"></div></div>';
+        if(r.actLog&&r.actLog[0])tile+='<div style="font-size:9px;color:#999;margin-top:2px">'+r.actLog.length+' interactions &middot; Last: '+r.actLog[0].questName+'</div>';
+        tile+='<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px">';
+        if(r.url)tile+='<a href="'+escH(r.url)+'" target="_blank" class="clink">&#128279;</a>';
+        if(r.description)tile+='<button class="btn bsm bgh" style="padding:3px 8px;font-size:10px" onclick="toggleEl(\''+dId+'\')">&#128196;</button>';
+        tile+='<button class="btn bsm bgh" title="Log" style="padding:3px 8px;font-size:11px" onclick="openModal(\'viewLog\',{log:JSON.stringify(S.companies[\''+cid+'\']&&S.companies[\''+cid+'\'].roles[\''+rid+'\']?S.companies[\''+cid+'\'].roles[\''+rid+'\'].actLog||[]:[] ),title:\''+rn+'\'})">&#128203;</button>';
+        if(r.resumes&&r.resumes.length)tile+='<button class="btn bsm bgh" style="padding:3px 8px;font-size:11px" onclick="openModal(\'viewResumes\',{coId:\''+cid+'\',roleId:\''+rid+'\'})">&#128196;'+r.resumes.length+'</button>';
+        tile+='<button class="btn bsm bgh" title="Edit" style="padding:3px 8px;font-size:11px" onclick="openModal(\'editRole\',{coId:\''+cid+'\',roleId:\''+rid+'\'})">&#9999;&#65039;</button>';
+        tile+='<button class="btn bsm bgh" title="Log call" style="padding:3px 8px;font-size:11px" onclick="openModal(\'phoneOutreach\',{roleId:\''+rid+'\',coId:\''+cid+'\'})">&#128222;</button>';
+        tile+='<button class="btn bsm bgh" title="Follow-up" style="padding:3px 8px;font-size:11px" onclick="quickFollowUp({roleId:\''+rid+'\',roleName:\''+rn+'\',coId:\''+cid+'\',coName:\''+escHRaw(co.name)+'\'})">&#9200;</button>';
+        tile+='<button class="btn bsm bgh" title="Import JD" style="padding:3px 8px;font-size:11px" onclick="importJobDesc(\''+cid+'\',\''+rid+'\')">&#128221;</button>';
+        tile+='<button class="btn bsm bgh" title="Log email" style="padding:3px 8px;font-size:11px" onclick="openModal(\'emailOutreach\',{roleId:\''+rid+'\',coId:\''+cid+'\'})">&#9993;&#65039;</button>';
+        tile+='<button class="btn bsm bred" title="Delete role" style="padding:3px 8px;font-size:11px" onclick="confirmDeleteRole(\''+cid+'\',\''+rid+'\',\''+rn+'\')">&#128465;</button>';
+        tile+='</div></div>';
+        tile+='<button class="btn bsm bred" style="margin-left:4px;flex-shrink:0" onclick="openQuestModal(null,\''+rid+'\',\''+cid+'\')">&#9876;</button>';
+        tile+='</div>';
+        if(r.description)tile+='<div class="rdesc" id="'+dId+'">'+escH(r.description).replace(/\n/g,'<br>')+'</div>';
+        tile+='</div>';
+      });
+      tile+='</div>';
+    }
+
+    if(rejCount&&hideRej)tile+='<div style="font-size:11px;color:#666;padding:6px 0">'+rejCount+' rejected role'+(rejCount>1?'s':'')+' hidden.</div>';
+    tile+='</div></div></div>';
+    html+=tile;
+  });
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+
 
 function toggleCollapse(coId){S.collapsed=S.collapsed||{};S.collapsed[coId]=!S.collapsed[coId];save();renderArena();}
 function toggleEl(id){const el=document.getElementById(id);if(!el)return;el.style.display=el.style.display==='none'?'block':'none';}
@@ -2474,5 +2553,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v3.9</div>
+<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v4.0</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
