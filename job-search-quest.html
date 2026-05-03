@@ -561,7 +561,11 @@ let S={xp:0,level:1,totalActions:0,actionsToday:0,streak:0,lastDate:null,
   dailyGoldClaimed:null,storeCat:'all'
 };
 
-function save(){try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){}if(MSFT.enabled)MSFT.scheduleSave();}
+function save(){
+  try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){}
+  localStorage.setItem('jsq_dirty','1');  // mark local as ahead of OneDrive
+  if(MSFT.enabled)MSFT.scheduleSave();
+}
 function load(){try{const r=localStorage.getItem(SK);if(r)S=Object.assign({companies:{},contacts:{},gold:0,owned:[],equipped:{weapon:null,armor:null,pet:null,lodging:'tent',mount:null},goals:{weekly_apply:5,weekly_network:3,weekly_outreach:5},collapsed:{},dailyGoldClaimed:null,storeCat:'all'},JSON.parse(r));}catch(e){}}
 
 // ══════════════════════════════════════════════════════════════════
@@ -648,7 +652,25 @@ const MSFT={
       const body=new URLSearchParams({client_id:this.clientId,grant_type:'refresh_token',refresh_token:rt,scope:this.scopes});
       const resp=await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body});
       const data=await resp.json();
-      if(data.access_token){this.token=data.access_token;if(data.refresh_token)localStorage.setItem('jsq_refresh',data.refresh_token);this.saveConfig();return true;}
+      if(data.access_token){
+        this.token=data.access_token;
+        if(data.refresh_token)localStorage.setItem('jsq_refresh',data.refresh_token);
+        this.saveConfig();
+        // Restore pre-auth backup if one was saved
+        var backup=localStorage.getItem('jsq_preauth_backup');
+        if(backup){try{
+          var bk=JSON.parse(backup);
+          S=Object.assign({},bk); // restore work done while disconnected
+          localStorage.removeItem('jsq_preauth_backup');
+          localStorage.setItem('jsq_dirty','1');
+          save();
+        }catch(e){}}
+        // Push any local changes to OneDrive immediately
+        localStorage.setItem('jsq_dirty','1');
+        var self=this;
+        setTimeout(function(){self.syncUp().then(function(){render();toast('\u2601\uFE0F OneDrive reconnected! Local changes pushed.');});},800);
+        return true;
+      }
     }catch(e){}
     return false;
   },
@@ -680,17 +702,27 @@ const MSFT={
     return null;
   },
 
-  async syncUp(){
-    if(!this.enabled||!this.token)return;
+    async syncUp(){
+    if(!this.enabled||!this.token){
+      // Token missing - mark dirty so we push when token returns
+      localStorage.setItem('jsq_dirty','1');
+      return;
+    }
     try{
       const id=await this.findOrCreateFile();if(!id)return;
       const blob=JSON.stringify(S);
-      await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${id}/content`,{
+      const resp=await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${id}/content`,{
         method:'PUT',headers:{'Authorization':`Bearer ${this.token}`,'Content-Type':'application/json'},
         body:blob
       });
-      document.getElementById('syncStatus')&&(document.getElementById('syncStatus').textContent='☁️ Saved '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
-    }catch(e){}
+      if(resp.ok){
+        localStorage.removeItem('jsq_dirty');  // clear dirty flag - OneDrive is current
+        document.getElementById('syncStatus')&&(document.getElementById('syncStatus').textContent='Saved '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
+      } else if(resp.status===401){
+        localStorage.setItem('jsq_dirty','1');  // keep dirty - token expired
+        toast('⚠️ OneDrive token expired. Tap Reconnect to re-sync.');
+      }
+    }catch(e){localStorage.setItem('jsq_dirty','1');}
   },
 
   async tryRefresh(){
@@ -724,9 +756,18 @@ const MSFT={
     }catch(e){return false;}
   },
   async syncDown(){
-
     if(!this.enabled||!this.token)return false;
     try{
+      // Push local changes first if dirty
+      if(localStorage.getItem('jsq_dirty')==='1'){
+        const id0=await this.findOrCreateFile();
+        if(id0){
+          const pr=await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${id0}/content`,{
+            method:'PUT',headers:{'Authorization':`Bearer ${this.token}`,'Content-Type':'application/json'},body:JSON.stringify(S)
+          }).catch(function(){return null;});
+          if(pr&&pr.ok)localStorage.removeItem('jsq_dirty');
+        }
+      }
       const id=await this.findOrCreateFile();if(!id)return false;
       const resp=await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${id}/content`,{
         headers:{'Authorization':`Bearer ${this.token}`}
@@ -792,6 +833,7 @@ function renderSyncPanel(){
       <div>
         <div style="font-size:13px;color:var(--green);font-weight:600">✅ Connected to OneDrive</div>
         <div id="syncStatus" style="font-size:11px;color:var(--il);margin-top:2px">Auto-saves after every action</div>
+        ${localStorage.getItem('jsq_dirty')==='1'?'<div style="font-size:11px;color:#e07020;margin-top:2px">&#9888; Local changes not yet synced to OneDrive</div>':''}
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn bsm bgh" data-tip="Pull latest save from OneDrive now" onclick="MSFT.syncDown().then(()=>render())">☁️ Sync Now</button>
@@ -1486,21 +1528,24 @@ function fuCoChanged(coId){
 
 // ── Quick Follow-Up ──────────────────────────────────────────────
 function quickFollowUp(opts){
-  // opts: {coId, coName, roleId, roleName, contactId, contactName}
-  var d=new Date();d.setDate(d.getDate()+3);
-  var defaultDate=d.toISOString().split('T')[0];
-  _ctx.quickFuOpts=opts;
+  // opts are spread into _ctx by openModal, so saveQuickFollowUp reads from _ctx directly
   openModal('quickFollowUp',opts);
 }
 function saveQuickFollowUp(){
-  var opts=_ctx.quickFuOpts||{};
+  // openModal spreads opts into _ctx directly, so read from _ctx
+  var contactId=_ctx.contactId||null;
+  var contactName=_ctx.contactName||'';
+  var coId=_ctx.coId||null;
+  var coName=_ctx.coName||'';
+  var roleId=_ctx.roleId||null;
+  var roleName=_ctx.roleName||'';
   var date=_v('qfuDate');if(!date)return;
-  var label=_v('qfuLabel')||'Follow up'+(opts.contactName?' with '+opts.contactName:opts.roleName?' on '+opts.roleName:opts.coName?' with '+opts.coName:'');
+  var label=_v('qfuLabel')||('Follow up'+(contactName?' with '+contactName:roleName?' on '+roleName:coName?' with '+coName:''));
   if(!S.followUps)S.followUps=[];
   S.followUps.push({id:uid(),label:label,date:date,notes:_v('qfuNotes'),
-    contactId:opts.contactId||null,contactName:opts.contactName||'',
-    coId:opts.coId||null,coName:opts.coName||'',
-    roleId:opts.roleId||null,roleName:opts.roleName||''});
+    contactId:contactId,contactName:contactName,
+    coId:coId,coName:coName,
+    roleId:roleId,roleName:roleName});
   save();render();closeModal();toast('\u23f0 Follow-up added!');
 }
 // ── Force Push / Reconnect ────────────────────────────────────────
@@ -1520,13 +1565,16 @@ async function forcePushOneDrive(){
   }catch(e){toast('\u26A0 Push error: '+e.message);}
 }
 function msReconnect(){
-  // Clear stale token and re-trigger sign-in
+  // Save local state snapshot before clearing token
+  // It will be pushed to OneDrive after re-auth via the dirty flag
+  localStorage.setItem('jsq_dirty','1');
+  localStorage.setItem('jsq_preauth_backup',JSON.stringify(S));
   MSFT.token=null;MSFT.fileId=null;
   localStorage.removeItem('jsq_refresh');
   localStorage.removeItem('jsq_msft');
   MSFT.enabled=false;
   renderSyncPanel();
-  toast('\uD83D\uDD04 Disconnected. Re-enter Client ID to reconnect.');
+  toast('\uD83D\uDD04 Disconnected. Your local data is preserved. Re-enter Client ID to reconnect.');
 }
 // ── Import Job Description from URL ─────────────────────────────
 function importJobDesc(coId,roleId){
@@ -1681,21 +1729,33 @@ function allFollowUps(){
   Object.values(S.companies).forEach(co=>{Object.values(co.roles||{}).forEach(r=>{
     const covered=coveredRoleIds.has(r.id)||coveredCoIds.has(co.id);
     if(r.followUpDate){const d=new Date(r.followUpDate);const overdue=d<new Date();
-      if(filter==='any'||filter==='due'&&d<=today)items.push({type:'role',label:escH(r.name),sub:'🏢 '+escH(co.name),date:r.followUpDate,overdue,coId:co.id,roleId:r.id,contactId:null,covered:true});
-      else if(filter==='all'&&d<=future)items.push({type:'role',label:escH(r.name),sub:'🏢 '+escH(co.name),date:r.followUpDate,overdue,coId:co.id,roleId:r.id,contactId:null,covered:true});
+      if(filter==='any'||filter==='due'&&d<=today)items.push({type:'role',label:escH(r.name)+' · '+escH(co.name),sub:'🏢 '+escH(co.name),date:r.followUpDate,overdue,coId:co.id,roleId:r.id,contactId:null,covered:true});
+      else if(filter==='all'&&d<=future)items.push({type:'role',label:escH(r.name)+' · '+escH(co.name),sub:'🏢 '+escH(co.name),date:r.followUpDate,overdue,coId:co.id,roleId:r.id,contactId:null,covered:true});
     }
   });});
   // Contacts
   Object.values(S.contacts).forEach(c=>{
     if(c.followUpDate){const d=new Date(c.followUpDate);const overdue=d<new Date();
-      if(filter==='any'||filter==='due'&&d<=today)items.push({type:'contact',label:escH(c.name),sub:escH(c.title||'')+(c.companyName?' @ '+escH(c.companyName):''),date:c.followUpDate,overdue,coId:c.companyId||null,roleId:null,contactId:c.id,covered:true});
-      else if(filter==='all'&&d<=future)items.push({type:'contact',label:escH(c.name),sub:escH(c.title||'')+(c.companyName?' @ '+escH(c.companyName):''),date:c.followUpDate,overdue,coId:c.companyId||null,roleId:null,contactId:c.id,covered:true});
+      var ctLabel=escH(c.name)+(c.title?' · '+escH(c.title):'')+(c.companyName?' · '+escH(c.companyName):'');
+      if(filter==='any'||filter==='due'&&d<=today){
+        items.push({type:'contact',label:ctLabel,sub:escH(c.title||'')+(c.companyName?' @ '+escH(c.companyName):''),date:c.followUpDate,overdue,coId:c.companyId||null,roleId:null,contactId:c.id,covered:true});
+      } else if(filter==='all'&&d<=future){
+        items.push({type:'contact',label:ctLabel,sub:escH(c.title||'')+(c.companyName?' @ '+escH(c.companyName):''),date:c.followUpDate,overdue,coId:c.companyId||null,roleId:null,contactId:c.id,covered:true});
+      }
     }
   });
   // Manual follow-ups
   (S.followUps||[]).forEach(fu=>{const d=new Date(fu.date);const overdue=d<new Date();
-    if(filter==='any'||filter==='due'&&d<=today)items.push({type:'manual',label:escH(fu.label),sub:escH(fu.notes||''),date:fu.date,overdue,fuId:fu.id,coId:fu.coId||null,roleId:fu.roleId||null,contactId:fu.contactId||null,covered:true});
-    else if(filter==='all'&&d<=future)items.push({type:'manual',label:escH(fu.label),sub:escH(fu.notes||''),date:fu.date,overdue,fuId:fu.id,coId:fu.coId||null,roleId:fu.roleId||null,contactId:fu.contactId||null,covered:true});
+    var manSuffix='';
+    if(fu.contactName)manSuffix+=' · '+escH(fu.contactName);
+    if(fu.roleName)manSuffix+=' · '+escH(fu.roleName);
+    if(fu.coName)manSuffix+=' · '+escH(fu.coName);
+    var manLabel=escH(fu.label)+(manSuffix?'<span style="font-weight:400;color:var(--il)">'+manSuffix+'</span>':'');
+    if(filter==='any'||filter==='due'&&d<=today){
+      items.push({type:'manual',label:manLabel,sub:escH(fu.notes||''),date:fu.date,overdue,fuId:fu.id,coId:fu.coId||null,roleId:fu.roleId||null,contactId:fu.contactId||null,covered:true});
+    } else if(filter==='all'&&d<=future){
+      items.push({type:'manual',label:manLabel,sub:escH(fu.notes||''),date:fu.date,overdue,fuId:fu.id,coId:fu.coId||null,roleId:fu.roleId||null,contactId:fu.contactId||null,covered:true});
+    }
   });
   items.sort((a,b)=>new Date(a.date)-new Date(b.date));
   return {items:items,coveredCoIds:coveredCoIds,coveredRoleIds:coveredRoleIds};
@@ -1854,6 +1914,13 @@ function getFuCoverage(){
   return {covCo:covCo,covRole:covRole,covContact:covContact};
 }
 // ── Print Call Sheet ─────────────────────────────────────────────
+function fmtPhone(p){
+  if(!p)return '';
+  var d=(p+'').replace(/\D/g,'');
+  if(d.length===10)return '('+d.slice(0,3)+') '+d.slice(3,6)+'-'+d.slice(6);
+  if(d.length===11&&d[0]==='1')return '('+d.slice(1,4)+') '+d.slice(4,7)+'-'+d.slice(7);
+  return p; // return as-is if can't parse
+}
 function printCallSheet(){
   var rows=[];
   // Collect all contacts with follow-ups OR NPC gap (no follow-up = still needs call)
@@ -1899,7 +1966,7 @@ function printCallSheet(){
       +'<td class="co-name">'+escH(c.companyName||'')+'</td>'
       +'<td>'+escH(c.name)+'</td>'
       +'<td>'+escH(c.title||'')+'</td>'
-      +'<td>'+(c.phone?'<a href="tel:'+escH(c.phone)+'">'+escH(c.phone)+'</a>':'—')+'</td>'
+      +'<td>'+(c.phone?'<a href="tel:'+escH(c.phone)+'">'+fmtPhone(c.phone)+'</a>':'—')+'</td>'
       +'<td>'+(c.email?'<a href="mailto:'+escH(c.email)+'">'+escH(c.email)+'</a>':'—')+'</td>'
       +'<td>'+(roles||'—')+'</td>'
       +'<td>'+fuStatus+'</td>'
@@ -2014,7 +2081,7 @@ function renderArena(){
       tile+='<div class="nc-name">'+escH(c.name)+'</div>';
       tile+='<div class="nc-title">'+escH(c.title||'')+(c.city?' &middot; '+escH(c.city):'')+'</div>';
       tile+='<div style="font-size:11px">'+'\u25cf'.repeat(rel)+'\u25cb'.repeat(5-rel)+'</div>';
-      var ctHasFu=fuCov.covContact.has(c.id);
+      var ctHasFu=fuCov.covContact.has(c.id)||fuCov.covCo.has(co.id);
       if(!ctHasFu)tile+='<div style="font-size:10px;color:#e07020;margin-top:2px">&#9888; No follow-up</div>';
       tile+='<div style="display:flex;gap:4px;margin-top:5px" onclick="event.stopPropagation()">';
       tile+='<button class="btn bsm bgh" title="Log call" style="font-size:10px;padding:2px 7px" onclick="openModal(\'phoneOutreach\',{contactId:\''+ctid+'\'})">&#128222;</button>';
@@ -2691,5 +2758,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v4.1</div>
+<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v4.4</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
