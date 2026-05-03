@@ -250,6 +250,8 @@ body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100
 .co-name-exp{font-family:'Cinzel',serif;font-size:13px;font-weight:700;color:#f0d890;flex:1;}
 .bred{background:rgba(180,30,30,.3)!important;border-color:rgba(180,30,30,.5)!important;}
 
+.fu-gap{color:#e07020;font-size:10px;font-weight:700;}
+.fu-ok{color:#2a5a2a;font-size:10px;}
 </style>
 </head>
 <body>
@@ -305,7 +307,8 @@ body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100
   <div class="card" id="followUpCard">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
       <div class="ct" style="margin:0;border:none;padding:0">⏰ Follow-Ups</div>
-      <div style="display:flex;gap:6px">
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <button class="btn bsm bgh" title="Print a call sheet for the car" onclick="printCallSheet()" style="font-size:11px">&#128196; Print Call Sheet</button>
         <select class="filter-select" id="fuFilter" onchange="renderFollowUps()" style="font-size:11px;padding:4px 8px">
           <option value="any">All Follow-Ups</option>
           <option value="due">Due &amp; Overdue</option>
@@ -445,7 +448,6 @@ const STORE_ITEMS = [
 
   // MAGIC — special abilities
   {id:'potion_xp',    cat:'magic',    icon:'🧪',  name:'XP Potion',          price:80,   req:1,  effect:'+200 XP instantly',                effectKey:'xpBoost',  effectVal:200, desc:'Drink before a big interview week for a surge of momentum.',          lore:'Bottled ambition.', consumable:true},
-  {id:'potion_gold',  cat:'magic',    icon:'⚗️',  name:'Gold Elixir',        price:100,  req:2,  effect:'+150 gold instantly',               effectKey:'goldBoost',effectVal:150, desc:'Transmute your hustle into immediate reward.',                         lore:'Alchemy for the modern job seeker.', consumable:true},
   {id:'scroll_apply', cat:'magic',    icon:'📜',  name:'Scroll of Mass Apply',price:120, req:2,  effect:'+3 to weekly application goal progress',effectKey:'applyBoost',effectVal:3, desc:'Enchanted parchment that counts as 3 applications toward your goal.',  lore:'The ancient art of spray and pray — enhanced.',consumable:true},
   {id:'crystal_ball', cat:'magic',    icon:'🔮',  name:'Crystal Ball',       price:400,  req:6,  effect:'Reveals salary data: +25% gold from salary negotiation',effectKey:'salaryReveal',effectVal:.25, desc:'Shows you exactly what they\'re willing to pay.',lore:'Knowledge is power. Power is salary.'},
   {id:'map',          cat:'magic',    icon:'🗺️',  name:'Map of Opportunity', price:250,  req:4,  effect:'+5 gold per company researched',    effectKey:'researchGold',effectVal:5, desc:'Illuminates hidden opportunities. Every company hides a secret path.',  lore:'Fortune favors the prepared.'},
@@ -1066,7 +1068,24 @@ function saveEmailOutreach(contactId,roleId,coId,evt){
   save();render();closeModal();toast('✉️ Email logged!');
 }
 async function importRole(coId,roleId,url){const role=S.companies[coId]?.roles[roleId];if(!role)return;role.importStatus='loading';save();render();try{const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,tools:[{type:'web_search_20250305',name:'web_search'}],messages:[{role:'user',content:`Search for and summarize the job posting at: ${url}\nExtract: 1) Role summary 2) Key responsibilities 3) Required qualifications 4) Preferred qualifications 5) Location/salary.\nFormat as plain text, clear section labels, under 500 words.`}]})});const data=await resp.json();let text='';if(data.content)data.content.forEach(b=>{if(b.type==='text')text+=b.text;});role.description=text.trim()||`Job posting: ${url}`;role.importStatus='done';}catch(e){role.description=`Job posting: ${url}\n(Auto-import failed.)`;role.importStatus='error';}save();render();toast(`📄 Role imported!`);}
-function saveNPC(existingId,coId){const name=_v('nName');if(!name)return null;const id=existingId||uid();const prev=existingId&&S.contacts[existingId]||{};S.contacts[id]={...prev,id,name,title:_v('nTitle'),city:_v('nCity'),linkedinUrl:_v('nLI'),email:_v('nEmail'),phone:_v('nPhone'),notes:_v('nNotes'),howMet:_v('nHowMet'),relationship:_ctx.relStrength||prev.relationship||1,companyId:coId||prev.companyId,companyName:S.companies[coId||prev.companyId]?.name||prev.companyName||''};if(!S.contacts[id].actLog)S.contacts[id].actLog=[];save();render();return id;}
+function saveNPC(existingId,coId){
+  const name=_v('nName');if(!name)return null;
+  const id=existingId||uid();
+  const prev=existingId&&S.contacts[existingId]||{};
+  // Collect selected role IDs
+  const roleCheckboxes=document.querySelectorAll('.npc-role-check:checked');
+  const roleIds=Array.from(roleCheckboxes).map(function(cb){return cb.value;});
+  S.contacts[id]={...prev,id,name,
+    title:_v('nTitle'),city:_v('nCity'),linkedinUrl:_v('nLI'),
+    email:_v('nEmail'),phone:_v('nPhone'),notes:_v('nNotes'),howMet:_v('nHowMet'),
+    relationship:_ctx.relStrength||prev.relationship||1,
+    companyId:coId||prev.companyId,
+    companyName:S.companies[coId||prev.companyId]?.name||prev.companyName||'',
+    roleIds:roleIds.length?roleIds:(prev.roleIds||[])
+  };
+  if(!S.contacts[id].actLog)S.contacts[id].actLog=[];
+  save();render();return id;
+}
 function saveGoals(){S.goals={weekly_apply:parseInt(_v('gApply'))||5,weekly_network:parseInt(_v('gNetwork'))||3,weekly_outreach:parseInt(_v('gOutreach'))||5};save();render();closeModal();toast('🎯 Goals saved!');}
 function _v(id){const el=document.getElementById(id);return el?el.value.trim():'';}
 function _fv(id){const el=document.getElementById(id);return el?el.value:'';}
@@ -1645,30 +1664,45 @@ function allFollowUps(){
   const future=new Date();future.setFullYear(future.getFullYear()+1);
   const filter=document.getElementById('fuFilter')?.value||'due';
   const items=[];
+  // Build rollup: which companies/roles have coverage via NPC follow-ups
+  const coveredCoIds=new Set();
+  const coveredRoleIds=new Set();
+  Object.values(S.contacts).forEach(c=>{
+    if(c.followUpDate){
+      if(c.companyId)coveredCoIds.add(c.companyId);
+      (c.roleIds||[]).forEach(function(rid){coveredRoleIds.add(rid);});
+    }
+  });
+  (S.followUps||[]).forEach(fu=>{
+    if(fu.coId)coveredCoIds.add(fu.coId);
+    if(fu.roleId)coveredRoleIds.add(fu.roleId);
+  });
   // Roles
   Object.values(S.companies).forEach(co=>{Object.values(co.roles||{}).forEach(r=>{
+    const covered=coveredRoleIds.has(r.id)||coveredCoIds.has(co.id);
     if(r.followUpDate){const d=new Date(r.followUpDate);const overdue=d<new Date();
-      if(filter==='any'||filter==='due'&&d<=today)items.push({type:'role',label:escH(r.name),sub:'🏢 '+escH(co.name),date:r.followUpDate,overdue,coId:co.id,roleId:r.id,contactId:null});
-      else if(filter==='all'&&d<=future)items.push({type:'role',label:escH(r.name),sub:'🏢 '+escH(co.name),date:r.followUpDate,overdue,coId:co.id,roleId:r.id,contactId:null});
+      if(filter==='any'||filter==='due'&&d<=today)items.push({type:'role',label:escH(r.name),sub:'🏢 '+escH(co.name),date:r.followUpDate,overdue,coId:co.id,roleId:r.id,contactId:null,covered:true});
+      else if(filter==='all'&&d<=future)items.push({type:'role',label:escH(r.name),sub:'🏢 '+escH(co.name),date:r.followUpDate,overdue,coId:co.id,roleId:r.id,contactId:null,covered:true});
     }
   });});
   // Contacts
   Object.values(S.contacts).forEach(c=>{
     if(c.followUpDate){const d=new Date(c.followUpDate);const overdue=d<new Date();
-      if(filter==='due'&&d<=today)items.push({type:'contact',label:escH(c.name),sub:escH(c.title||'')+(c.companyName?' @ '+escH(c.companyName):''),date:c.followUpDate,overdue,coId:c.companyId||null,roleId:null,contactId:c.id});
-      else if(filter==='all'&&d<=future)items.push({type:'contact',label:escH(c.name),sub:escH(c.title||'')+(c.companyName?' @ '+escH(c.companyName):''),date:c.followUpDate,overdue,coId:c.companyId||null,roleId:null,contactId:c.id});
+      if(filter==='any'||filter==='due'&&d<=today)items.push({type:'contact',label:escH(c.name),sub:escH(c.title||'')+(c.companyName?' @ '+escH(c.companyName):''),date:c.followUpDate,overdue,coId:c.companyId||null,roleId:null,contactId:c.id,covered:true});
+      else if(filter==='all'&&d<=future)items.push({type:'contact',label:escH(c.name),sub:escH(c.title||'')+(c.companyName?' @ '+escH(c.companyName):''),date:c.followUpDate,overdue,coId:c.companyId||null,roleId:null,contactId:c.id,covered:true});
     }
   });
   // Manual follow-ups
   (S.followUps||[]).forEach(fu=>{const d=new Date(fu.date);const overdue=d<new Date();
-    if(filter==='due'&&d<=today)items.push({type:'manual',label:escH(fu.label),sub:escH(fu.notes||''),date:fu.date,overdue,fuId:fu.id,coId:null,roleId:null,contactId:null});
-    else if(filter==='all'&&d<=future)items.push({type:'manual',label:escH(fu.label),sub:escH(fu.notes||''),date:fu.date,overdue,fuId:fu.id,coId:null,roleId:null,contactId:null});
+    if(filter==='any'||filter==='due'&&d<=today)items.push({type:'manual',label:escH(fu.label),sub:escH(fu.notes||''),date:fu.date,overdue,fuId:fu.id,coId:fu.coId||null,roleId:fu.roleId||null,contactId:fu.contactId||null,covered:true});
+    else if(filter==='all'&&d<=future)items.push({type:'manual',label:escH(fu.label),sub:escH(fu.notes||''),date:fu.date,overdue,fuId:fu.id,coId:fu.coId||null,roleId:fu.roleId||null,contactId:fu.contactId||null,covered:true});
   });
   items.sort((a,b)=>new Date(a.date)-new Date(b.date));
-  return items;
+  return {items:items,coveredCoIds:coveredCoIds,coveredRoleIds:coveredRoleIds};
 }
 function renderFollowUps(){
-  const items=allFollowUps();
+  const fuData=allFollowUps();
+  const items=fuData.items;
   const el=document.getElementById('followUpList');if(!el)return;
   if(!items.length){el.innerHTML='<div class="empty" style="padding:12px 0;font-size:13px">No follow-ups due.</div>';return;}
   el.innerHTML=items.map(r=>`
@@ -1798,10 +1832,108 @@ function deleteRole(coId,roleId){
 }
 // New renderArena - uses innerHTML with backtick template strings
 // All ID embedding uses template literals (backtick) which handle escaping correctly
+// ── Follow-Up Coverage ───────────────────────────────────────────
+function getFuCoverage(){
+  const covCo=new Set();const covRole=new Set();const covContact=new Set();
+  // From contact follow-ups
+  Object.values(S.contacts||{}).forEach(function(c){
+    if(c.followUpDate){if(c.companyId)covCo.add(c.companyId);(c.roleIds||[]).forEach(function(rid){covRole.add(rid);});covContact.add(c.id);}
+  });
+  // From role follow-ups
+  Object.values(S.companies||{}).forEach(function(co){
+    Object.values(co.roles||{}).forEach(function(r){
+      if(r.followUpDate){covRole.add(r.id);covCo.add(co.id);}
+    });
+  });
+  // From manual follow-ups
+  (S.followUps||[]).forEach(function(fu){
+    if(fu.coId)covCo.add(fu.coId);
+    if(fu.roleId)covRole.add(fu.roleId);
+    if(fu.contactId)covContact.add(fu.contactId);
+  });
+  return {covCo:covCo,covRole:covRole,covContact:covContact};
+}
+// ── Print Call Sheet ─────────────────────────────────────────────
+function printCallSheet(){
+  var rows=[];
+  // Collect all contacts with follow-ups OR NPC gap (no follow-up = still needs call)
+  var fuCov=getFuCoverage();
+  var today=new Date().toLocaleDateString([],{month:'short',day:'numeric',year:'numeric'});
+  // All contacts — sorted by company then name
+  var cts=Object.values(S.contacts||{}).sort(function(a,b){
+    return (a.companyName||'').localeCompare(b.companyName||'')||a.name.localeCompare(b.name);
+  });
+  // Collect follow-up items to reference
+  var fuItems=[];
+  Object.values(S.companies||{}).forEach(function(co){
+    Object.values(co.roles||{}).forEach(function(r){
+      if(r.followUpDate)fuItems.push({type:'role',name:r.name,co:co.name,date:r.followUpDate});
+    });
+  });
+  (S.followUps||[]).forEach(function(fu){
+    fuItems.push({type:'manual',name:fu.label,co:fu.coName||'',date:fu.date,notes:fu.notes});
+  });
+  var win=window.open('','_blank');
+  var css='body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:20px;} '+
+    'h1{font-size:18px;margin-bottom:4px;} '+
+    '.date{color:#666;font-size:11px;margin-bottom:16px;} '+
+    'table{width:100%;border-collapse:collapse;margin-bottom:20px;} '+
+    'th{background:#1e0808;color:#f0d890;text-align:left;padding:6px 8px;font-size:11px;letter-spacing:.5px;} '+
+    'td{padding:6px 8px;border-bottom:1px solid #ddd;vertical-align:top;font-size:11px;} '+
+    'tr:nth-child(even) td{background:#f9f5ee;} '+
+    '.co-name{font-weight:700;font-size:12px;} '+
+    '.no-fu{color:#cc5500;font-weight:700;} '+
+    '.has-fu{color:#2a5a2a;} '+
+    '.fu-section h2{font-size:14px;margin:20px 0 8px;} '+
+    '.notes{color:#555;font-style:italic;} '+
+    '@media print{body{margin:10px;} h1{font-size:16px;}}';
+  // Build contact rows
+  var ctRows=cts.map(function(c){
+    var hasFu=fuCov.covContact.has(c.id);
+    var coHasFu=c.companyId&&fuCov.covCo.has(c.companyId);
+    var fuStatus=hasFu||coHasFu?'<span class="has-fu">&#10003; Covered</span>':'<span class="no-fu">&#9888; Needs FU</span>';
+    var roles=(c.roleIds||[]).map(function(rid){
+      var co=S.companies[c.companyId];var r=co&&co.roles[rid];return r?r.name:'';
+    }).filter(Boolean).join(', ');
+    return '<tr>'
+      +'<td class="co-name">'+escH(c.companyName||'')+'</td>'
+      +'<td>'+escH(c.name)+'</td>'
+      +'<td>'+escH(c.title||'')+'</td>'
+      +'<td>'+(c.phone?'<a href="tel:'+escH(c.phone)+'">'+escH(c.phone)+'</a>':'—')+'</td>'
+      +'<td>'+(c.email?'<a href="mailto:'+escH(c.email)+'">'+escH(c.email)+'</a>':'—')+'</td>'
+      +'<td>'+(roles||'—')+'</td>'
+      +'<td>'+fuStatus+'</td>'
+      +'<td class="notes">'+escH(c.notes||'')+'</td>'
+      +'</tr>';
+  }).join('');
+  // Build follow-up items
+  var fuRows=fuItems.sort(function(a,b){return new Date(a.date)-new Date(b.date);}).map(function(fu){
+    var overdue=new Date(fu.date)<new Date();
+    return '<tr>'
+      +'<td style="'+(overdue?'color:#c0392b;font-weight:700;':'')+'">'+(overdue?'&#9888; ':'')+fu.date+'</td>'
+      +'<td>'+escH(fu.co||'')+'</td>'
+      +'<td>'+escH(fu.name)+'</td>'
+      +'<td class="notes">'+escH(fu.notes||'')+'</td>'
+      +'</tr>';
+  }).join('');
+  win.document.write('<!DOCTYPE html><html><head><title>Call Sheet — '+today+'</title>'
+    +'<style>'+css+'</style></head><body>'
+    +'<h1>Job Search Call Sheet</h1><div class="date">Generated: '+today+'</div>'
+    +'<table><thead><tr><th>COMPANY</th><th>NAME</th><th>TITLE</th><th>PHONE</th><th>EMAIL</th><th>ROLES</th><th>FOLLOW-UP</th><th>NOTES</th></tr></thead><tbody>'
+    +ctRows+'</tbody></table>'
+    +(fuRows?'<div class="fu-section"><h2>Scheduled Follow-Ups</h2>'
+      +'<table><thead><tr><th>DATE</th><th>COMPANY</th><th>ITEM</th><th>NOTES</th></tr></thead><tbody>'
+      +fuRows+'</tbody></table></div>':'')
+    +'</body></html>');
+  win.document.close();
+  win.focus();
+  setTimeout(function(){win.print();},500);
+}
 function renderArena(){
   var sq=(document.getElementById('searchInput')?document.getElementById('searchInput').value:'').toLowerCase();
   var fs=document.getElementById('filterStatus')?document.getElementById('filterStatus').value:'';
   var hideRej=document.getElementById('hideRejected')?document.getElementById('hideRejected').checked:false;
+  var fuCov=getFuCoverage();
   var cos=Object.values(S.companies).filter(function(co){
     if(!sq&&!fs)return true;
     var roles=Object.values(co.roles||{});
@@ -1841,8 +1973,10 @@ function renderArena(){
     tile+='<div class="co-tile-name">'+cn+' '+statusBadge;
     tile+='<span style="font-size:11px;opacity:.5;margin-left:4px">'+(isExp?'&#9660;':'&#9654;')+'</span></div>';
     tile+='<div class="co-tile-stats">';
+    var coHasFu=fuCov.covCo.has(co.id);
     tile+='<span>&#127919; '+activeCount+'</span>';
     tile+='<span>&#128100; '+contacts.length+'</span>';
+    if(!coHasFu)tile+='<span style="color:#e07020;font-size:10px" title="No follow-up scheduled">&#9888;&#65039; No FU</span>';
     if(rejCount&&!hideRej)tile+='<span style="color:#666">&#128128; '+rejCount+'</span>';
     tile+='<span style="color:#a07030">'+Math.round(co.dmgDealt)+' dmg</span>';
     tile+='</div></div></div>';
@@ -1880,6 +2014,8 @@ function renderArena(){
       tile+='<div class="nc-name">'+escH(c.name)+'</div>';
       tile+='<div class="nc-title">'+escH(c.title||'')+(c.city?' &middot; '+escH(c.city):'')+'</div>';
       tile+='<div style="font-size:11px">'+'\u25cf'.repeat(rel)+'\u25cb'.repeat(5-rel)+'</div>';
+      var ctHasFu=fuCov.covContact.has(c.id);
+      if(!ctHasFu)tile+='<div style="font-size:10px;color:#e07020;margin-top:2px">&#9888; No follow-up</div>';
       tile+='<div style="display:flex;gap:4px;margin-top:5px" onclick="event.stopPropagation()">';
       tile+='<button class="btn bsm bgh" title="Log call" style="font-size:10px;padding:2px 7px" onclick="openModal(\'phoneOutreach\',{contactId:\''+ctid+'\'})">&#128222;</button>';
       tile+='<button class="btn bsm bgh" title="Log email" style="font-size:10px;padding:2px 7px" onclick="openModal(\'emailOutreach\',{contactId:\''+ctid+'\'})">&#9993;&#65039;</button>';
@@ -1905,7 +2041,8 @@ function renderArena(){
         tile+='<div class="rh">';
         tile+='<span style="font-size:18px;flex-shrink:0">'+(st==='rejected'?'&#128128;':st==='offer'?'&#127942;':'&#128100;')+'</span>';
         tile+='<div style="flex:1;min-width:100px">';
-        tile+='<div class="rname">'+escH(r.name)+'<span class="status-badge '+STATUS_COLORS[st]+'">'+STATUS_LABELS[st]+'</span></div>';
+        var rHasFu=fuCov.covRole.has(r.id)||fuCov.covCo.has(co.id);
+        tile+='<div class="rname">'+escH(r.name)+'<span class="status-badge '+STATUS_COLORS[st]+'">'+STATUS_LABELS[st]+'</span>'+(rHasFu?'':'<span style="font-size:10px;color:#e07020;margin-left:6px">&#9888; No FU</span>')+'</div>';
         if(r.location)tile+='<div class="rloc">&#128205; '+escH(r.location)+'</div>';
         if(r.salary)tile+='<div class="salary-tag">&#128176; '+escH(r.salary)+'</div>';
         if(r.deadline)tile+='<div class="deadline-tag">&#9203; '+r.deadline+'</div>';
@@ -2017,7 +2154,7 @@ function buildModal(type,data){
         ${c.howMet?`<div class="npc-view-row"><span class="nvl">HOW MET</span>${escH(c.howMet)}</div>`:''}
         ${c.email?`<div class="npc-view-row"><span class="nvl">EMAIL</span><a href="mailto:${c.email}">${escH(c.email)}</a></div>`:''}
         ${c.phone?`<div class="npc-view-row"><span class="nvl">PHONE</span><a href="tel:${c.phone}">${escH(c.phone)}</a></div>`:''}
-        ${c.linkedinUrl?`<div class="npc-view-row"><span class="nvl">LINKEDIN</span><a href="${c.linkedinUrl}" target="_blank">View →</a></div>`:''}
+        ${(c.roleIds&&c.roleIds.length)?`<div class="npc-view-row"><span class="nvl">ROLES</span><span>${c.roleIds.map(rid=>{const co=S.companies[c.companyId];const r=co&&co.roles[rid];return r?escH(r.name):'';}).filter(Boolean).join(', ')}</span></div>`:''}\n        ${c.linkedinUrl?`<div class="npc-view-row"><span class="nvl">LINKEDIN</span><a href="${c.linkedinUrl}" target="_blank">View →</a></div>`:''}
         <div class="npc-view-row"><span class="nvl">LAST CONTACT</span>${last}</div>
         <div class="npc-view-row"><span class="nvl">RELATIONSHIP</span>${'●'.repeat(rel)}${'○'.repeat(5-rel)} <span style="font-size:10px;color:var(--il);margin-left:6px">${['','Cold','Warm','Engaged','Strong','Champion'][rel]}</span></div>
         ${c.notes?`<div style="margin-top:8px;padding:8px 10px;background:rgba(42,26,10,.06);border-left:3px solid var(--gold);font-size:12px;color:var(--il);line-height:1.5">${escH(c.notes)}</div>`:''}
@@ -2039,6 +2176,7 @@ function buildModal(type,data){
       <label class="ilbl">Email</label><input class="ti" id="nEmail" value="${escH(c.email||'')}" type="email">
       <label class="ilbl">Phone</label><input class="ti" id="nPhone" value="${escH(c.phone||'')}" type="tel">
       <label class="ilbl">Notes</label><textarea class="ta" id="nNotes">${escH(c.notes||'')}</textarea>
+      ${coId&&S.companies[coId]&&Object.keys(S.companies[coId].roles||{}).length?`<label class="ilbl">Linked Roles (select all that apply)</label><div style="display:flex;flex-direction:column;gap:6px;padding:8px;background:rgba(42,26,10,.06);border:1px solid var(--gd);border-radius:4px;max-height:120px;overflow-y:auto">${Object.values(S.companies[coId].roles||{}).map(r=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" class="npc-role-check" value="${r.id}" ${(c.roleIds||[]).includes(r.id)?'checked':''} style="accent-color:var(--gold)"> ${escH(r.name)}</label>`).join('')}</div>`:''}
       <label class="ilbl">Relationship Strength</label>
       <div class="rel-strength" id="relDots">
         ${[1,2,3,4,5].map(i=>`<div class="rs-dot ${i<=rel?'filled':''}" onclick="setRel(${i})"></div>`).join('')}
@@ -2553,5 +2691,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v4.0</div>
+<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v4.1</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
