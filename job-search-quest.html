@@ -1305,7 +1305,7 @@ function renderPotentialRoles(){
       +(r.url?'<a href="'+r.url+'" target="_blank" class="btn bsm bgh" style="text-decoration:none">\uD83D\uDD17 View</a>':'')
       +'<button class="btn bsm" onclick="approvePotentialRole(\''+r.id+'\')">\u2713 Approve</button>'
       +'<button class="btn bsm bgh" onclick="snoozePotentialRole(\''+r.id+'\')">\u23F0 Snooze</button>'
-      +'<button class="btn bsm bgh" onclick="dismissPotentialRole(\''+r.id+'\')">\u2715 Dismiss</button>'
+      +'<button class="btn bsm bgh" onclick="window._dismissTags=[];openModal(\'dismissRole\',{roleId:\''+r.id+'\'})" style="border-color:rgba(180,30,30,.4)">\u2715 Dismiss</button>\''
       +srcBadge+snoozeNote
       +'</div></div>';
   }).join('');
