@@ -561,9 +561,41 @@ let S={xp:0,level:1,totalActions:0,actionsToday:0,streak:0,lastDate:null,
   dailyGoldClaimed:null,storeCat:'all'
 };
 
+function trimSaveData(){
+  // Trim activity logs to prevent localStorage from filling up
+  var MAX_CO_LOG=20;var MAX_ROLE_LOG=15;var MAX_CT_LOG=20;
+  // Always strip resume binary data before saving
+  Object.values(S.companies||{}).forEach(function(co){
+    Object.values(co.roles||{}).forEach(function(r){
+      if(r.resumeData)delete r.resumeData;
+      if(r.resumes)r.resumes=r.resumes.map(function(res){return {name:res.name,data:null,oneDriveId:res.oneDriveId||null,oneDriveUrl:res.oneDriveUrl||null};});
+    });
+  });
+  Object.values(S.companies||{}).forEach(function(co){
+    if(co.actLog&&co.actLog.length>MAX_CO_LOG)co.actLog=co.actLog.slice(0,MAX_CO_LOG);
+    Object.values(co.roles||{}).forEach(function(r){
+      if(r.actLog&&r.actLog.length>MAX_ROLE_LOG)r.actLog=r.actLog.slice(0,MAX_ROLE_LOG);
+    });
+  });
+  Object.values(S.contacts||{}).forEach(function(c){
+    if(c.actLog&&c.actLog.length>MAX_CT_LOG)c.actLog=c.actLog.slice(0,MAX_CT_LOG);
+  });
+  if(S.log&&S.log.length>50)S.log=S.log.slice(0,50);
+}
 function save(){
-  try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){}
-  localStorage.setItem('jsq_dirty','1');  // mark local as ahead of OneDrive
+  trimSaveData(); // keep logs lean to prevent localStorage quota issues
+  try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){
+    // If quota exceeded, trim more aggressively and retry
+    try{
+      Object.values(S.companies||{}).forEach(function(co){
+        co.actLog=(co.actLog||[]).slice(0,5);
+        Object.values(co.roles||{}).forEach(function(r){r.actLog=(r.actLog||[]).slice(0,5);});
+      });
+      S.log=(S.log||[]).slice(0,20);
+      localStorage.setItem(SK,JSON.stringify(S));
+    }catch(e2){console.warn('localStorage full:',e2);}
+  }
+  localStorage.setItem('jsq_dirty','1');
   if(MSFT.enabled)MSFT.scheduleSave();
 }
 function load(){try{const r=localStorage.getItem(SK);if(r)S=Object.assign({companies:{},contacts:{},gold:0,owned:[],equipped:{weapon:null,armor:null,pet:null,lodging:'tent',mount:null},goals:{weekly_apply:5,weekly_network:3,weekly_outreach:5},collapsed:{},dailyGoldClaimed:null,storeCat:'all'},JSON.parse(r));}catch(e){}}
@@ -638,7 +670,26 @@ const MSFT={
         if(data.refresh_token)localStorage.setItem('jsq_refresh',data.refresh_token);
         this.enabled=true;this.saveConfig();
         localStorage.removeItem('jsq_pkce_verifier');localStorage.removeItem('jsq_pkce_clientid');
-        setTimeout(()=>{toast('✅ Microsoft connected! Syncing…');this.syncDown().then(()=>render());renderSyncPanel();},200);
+        const isDirty=localStorage.getItem('jsq_dirty')==='1';
+        const self=this;
+        setTimeout(function(){
+          toast('✅ Microsoft connected!');
+          if(isDirty){
+            // Push local changes first, THEN pull from OneDrive
+            fetch('https://graph.microsoft.com/v1.0/me/drive/root:/job-search-quest-save.json:/content',{
+              method:'PUT',
+              headers:{'Authorization':'Bearer '+self.token,'Content-Type':'application/json'},
+              body:JSON.stringify(S)
+            }).then(function(r){
+              if(r.ok){localStorage.removeItem('jsq_dirty');toast('⬆️ Local changes pushed!');}
+              return self.syncDown();
+            }).then(function(){render();renderSyncPanel();}).catch(function(){
+              self.syncDown().then(function(){render();renderSyncPanel();});
+            });
+          } else {
+            self.syncDown().then(function(){render();renderSyncPanel();});
+          }
+        },300);
       } else {
         toast('⚠️ Sign-in failed: '+(data.error_description||data.error||'unknown'));
       }
@@ -656,16 +707,8 @@ const MSFT={
         this.token=data.access_token;
         if(data.refresh_token)localStorage.setItem('jsq_refresh',data.refresh_token);
         this.saveConfig();
-        // Restore pre-auth backup if one was saved
-        var backup=localStorage.getItem('jsq_preauth_backup');
-        if(backup){try{
-          var bk=JSON.parse(backup);
-          S=Object.assign({},bk); // restore work done while disconnected
-          localStorage.removeItem('jsq_preauth_backup');
-          localStorage.setItem('jsq_dirty','1');
-          save();
-        }catch(e){}}
-        // Push any local changes to OneDrive immediately
+        // Local state is always current in localStorage (jsq_v9)
+        // Push it to OneDrive immediately after reconnect
         localStorage.setItem('jsq_dirty','1');
         var self=this;
         setTimeout(function(){self.syncUp().then(function(){render();toast('\u2601\uFE0F OneDrive reconnected! Local changes pushed.');});},800);
@@ -769,7 +812,12 @@ const MSFT={
         }
       }
       const id=await this.findOrCreateFile();if(!id)return false;
-      const resp=await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${id}/content`,{
+      // Try direct path first (faster, doesn't require file ID lookup)
+      let sdResp=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/job-search-quest-save.json:/content',{
+        headers:{'Authorization':`Bearer ${this.token}`}
+      }).catch(function(){return null;});
+      // Fallback to item ID if direct path fails
+      const resp=sdResp&&sdResp.status!==404?sdResp:await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${id}/content`,{
         headers:{'Authorization':`Bearer ${this.token}`}
       });
       if(resp.status===401){
@@ -1443,13 +1491,46 @@ function saveRoleResume(coId,roleId){
   if(_pendingFile&&_pendingFile.name){
     if(!role.resumes)role.resumes=[];
     const existing=role.resumes.find(function(r){return r.name===_pendingFile.name;});
-    if(!existing)role.resumes.push({name:_pendingFile.name,data:_pendingFile.data});
+    // Store filename only - no binary data in localStorage
+    if(!existing)role.resumes.push({name:_pendingFile.name,data:null});
     role.activeResume=_pendingFile.name;
-    save();render();closeModal();toast('\uD83D\uDCC4 Resume updated!');
+    // Upload to OneDrive if connected
+    if(MSFT.enabled&&MSFT.token&&_pendingFile.data){
+      uploadResumeToOneDrive(_pendingFile.name,_pendingFile.data,coId,roleId);
+    }
+    save();render();closeModal();toast('\uD83D\uDCC4 Resume saved!');
   } else {
     const sel=_v('resumeSel');
     if(sel){role.activeResume=sel;save();render();closeModal();toast('\uD83D\uDCC4 Resume set!');}
   }
+}
+async function uploadResumeToOneDrive(name,data,coId,roleId){
+  try{
+    const safeName=name.replace(/[^a-zA-Z0-9._-]/g,'_');
+    const path='job-search-resumes/'+safeName;
+    const b64=data.split(',')[1]||data;
+    const binary=atob(b64);
+    const bytes=new Uint8Array(binary.length);
+    for(var i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+    const resp=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+encodeURIComponent(path)+':/content',{
+      method:'PUT',
+      headers:{'Authorization':'Bearer '+MSFT.token,'Content-Type':'application/octet-stream'},
+      body:bytes
+    });
+    if(resp.ok){
+      const data2=await resp.json();
+      // Store OneDrive item ID for later retrieval
+      const role=S.companies[coId]&&S.companies[coId].roles[roleId];
+      if(role){
+        var res=role.resumes.find(function(r){return r.name===name;});
+        if(res){res.oneDriveId=data2.id;res.oneDriveUrl=data2['@microsoft.graph.downloadUrl']||'';}
+        save();
+      }
+      toast('\u2601\uFE0F Resume uploaded to OneDrive!');
+    } else {
+      toast('\u26A0 Resume saved locally but OneDrive upload failed.');
+    }
+  }catch(e){toast('\u26A0 Resume upload error: '+e.message);}
 }
 
 // ── Template placeholder fill ─────────────────────────────────────
@@ -1458,6 +1539,10 @@ function fillTemplate(body,npc,role,company){
   if(npc){result=result.replace(/\[Name\]/g,npc.name||'[Name]');}
   if(role){result=result.replace(/\[Role\]/g,role.name||'[Role]');}
   if(company){result=result.replace(/\[Company\]/g,company.name||'[Company]');}
+  if(role&&role.location){
+    var cityPart=(role.location.split(',')[0]||role.location).trim();
+    result=result.replace(/\[City\]/g,cityPart);
+  }
   if(role&&role.location){result=result.replace(/\[region\]/g,role.location);}
   else if(company&&company.careersUrl){result=result.replace(/\[region\]/g,'[region]');}
   return result;
@@ -1552,29 +1637,33 @@ function saveQuickFollowUp(){
 async function forcePushOneDrive(){
   if(!MSFT.enabled||!MSFT.token){toast('\u26A0 Not connected to OneDrive');return;}
   try{
-    const id=await MSFT.findOrCreateFile();
-    if(!id){toast('\u26A0 Could not find OneDrive file');return;}
-    const resp=await fetch('https://graph.microsoft.com/v1.0/me/drive/items/'+id+'/content',{
+    // Use direct path - most reliable approach
+    const resp=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/job-search-quest-save.json:/content',{
       method:'PUT',
       headers:{'Authorization':'Bearer '+MSFT.token,'Content-Type':'application/json'},
       body:JSON.stringify(S)
     });
-    if(resp.ok){toast('\u2B06\uFE0F Pushed to OneDrive!');}
-    else if(resp.status===401){toast('\u26A0 Token expired. Tap Reconnect.');}
-    else{toast('\u26A0 Push failed: '+resp.status);}
+    if(resp.ok){
+      localStorage.removeItem('jsq_dirty');
+      renderSyncPanel();
+      toast('\u2B06\uFE0F Pushed to OneDrive!');
+      return;
+    }
+    if(resp.status===401){toast('\u26A0 Token expired. Click Reconnect.');return;}
+    toast('\u26A0 Push failed: '+resp.status);
   }catch(e){toast('\u26A0 Push error: '+e.message);}
 }
 function msReconnect(){
-  // Save local state snapshot before clearing token
-  // It will be pushed to OneDrive after re-auth via the dirty flag
+  // Mark dirty so we push local state after re-auth
   localStorage.setItem('jsq_dirty','1');
-  localStorage.setItem('jsq_preauth_backup',JSON.stringify(S));
+  // Don't write backup - localStorage may be near quota
+  // Local data stays in jsq_v9 (which is always current)
   MSFT.token=null;MSFT.fileId=null;
   localStorage.removeItem('jsq_refresh');
   localStorage.removeItem('jsq_msft');
   MSFT.enabled=false;
   renderSyncPanel();
-  toast('\uD83D\uDD04 Disconnected. Your local data is preserved. Re-enter Client ID to reconnect.');
+  toast('\uD83D\uDD04 Disconnected. Re-enter your Client ID to reconnect.');
 }
 // ── Import Job Description from URL ─────────────────────────────
 function importJobDesc(coId,roleId){
@@ -1804,6 +1893,8 @@ function getTemplates(){return S.emailTemplates||(S.emailTemplates=[
   {id:'tpl1',name:'VP Cold Outreach',subject:'Distribution Sales Leadership — Jim Christiano',body:'Hi [Name],\n\nI wanted to reach out directly rather than wait on job boards. I spent 22 years at DiVal Safety Equipment, most recently directing a $40M division with a 36-person sales force — and before that building their western territory from the ground up.\n\nI\'m targeting Director-level or Senior Manager roles at large industrial distributors in [region]. If you\'re building out your team or know of something coming together, I\'d welcome a short conversation.\n\nBest,\nJim Christiano\n385-272-9562'},
   {id:'tpl2',name:'Follow-Up After Interview',subject:'Thank You — [Role] Interview',body:'Hi [Name],\n\nThank you for the time today. I enjoyed learning more about [Company] and the [Role] opportunity.\n\nOur conversation reinforced my interest. I\'m confident my background would translate directly.\n\nLooking forward to next steps.\n\nBest,\nJim Christiano'},
   {id:'tpl3',name:'Recruiter Outreach',subject:'[Role] — Jim Christiano',body:'Hi [Name],\n\nI came across your profile and wanted to connect. I have 22+ years in industrial/safety distribution with P&L ownership, team leadership, and a track record of consistent revenue growth.\n\nI\'m actively exploring Director and Senior Manager opportunities in [region]. If you\'re working on anything relevant, I\'d be glad to connect.\n\nBest,\nJim Christiano\n385-272-9562'},
+
+  {id:'tpl4',name:'Recruiter Follow-Up (Applied)',subject:'[Role] Application \u2014 Jim Christiano',body:'Hi [Name],\n\nI wanted to reach out directly after submitting my application for the [Role] position at [Company].\n\nI have 22 years in industrial and safety distribution, most recently directing a $40M division with a 36-person sales force. Before that I built a ground-up western territory from scratch. I bring full P&L ownership experience, a track record of consistent revenue growth, and deep knowledge of the safety and MRO space.\n\nI am confident this is a strong fit and would welcome a brief conversation if you have any questions about my background.\n\nThank you for your time.\n\nJim Christiano\n385-272-9562\njim.christiano@outlook.com'},
 ]);}
 function renderTemplates(){
   const el=document.getElementById('templateList');if(!el)return;
@@ -2467,7 +2558,7 @@ function buildModal(type,data){
     var allCos2=Object.values(S.companies).sort(function(a,b){return a.name.localeCompare(b.name);});
     var allCts2=Object.values(S.contacts).sort(function(a,b){return a.name.localeCompare(b.name);});
     return '<div class="ct">&#128203; Copy: '+escH(t.name)+'</div>'
-      +'<p class="note" style="margin-bottom:8px">Optionally select a person and role to auto-fill placeholders before copying.</p>'
+      +'<p class="note" style="margin-bottom:8px">Optionally select a person and role to auto-fill placeholders: [Name], [Role], [Company], [City], [region].</p>'
       +'<label class="ilbl">Person (optional)</label>'
       +'<select class="sel-input" id="copyContactId" onchange="updateCopyPreview()"><option value="">— None —</option>'
       +allCts2.map(function(c){return '<option value="'+c.id+'">'+escH(c.name)+(c.companyName?' @ '+escH(c.companyName):'')+' </option>';}).join('')
@@ -2758,5 +2849,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v4.4</div>
+<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v4.7</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
