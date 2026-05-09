@@ -327,6 +327,7 @@ body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100
       <div style="display:flex;gap:6px;align-items:center">
         <span id="potRoleCount" style="font-size:12px;color:var(--il);font-family:'Cinzel',serif"></span>
         <button class="btn bsm bgh" title="Add a potential role manually" onclick="openModal('addPotentialRole',{})">+ Add</button>
+      <button class="btn bsm bgh" title="View dismissal log for Cowork" onclick="openModal('dismissalLog',{})">📋 Why Dismissed</button>
         <button class="btn bsm bgh" title="Import roles from JSON file" onclick="document.getElementById('prImportFile').click()">📥 Import</button>
       <input type="file" id="prImportFile" accept=".json" style="display:none" onchange="handlePrImport(this)">
       <button class="btn bsm bgh" title="Job search criteria for automated matching" onclick="openModal('editCriteria',{})">⚙️ Criteria</button>
@@ -863,6 +864,13 @@ const MSFT={
         var u=normUrl(r.url),k=normKey(r.name,r.companyName||r.coName);
         var key=u||k;if(!key||prSeen.has(key))return false;prSeen.add(key);return true;
       });
+      // Merge dismissal logs
+      var allDismissals=[...(S.dismissalLog||[]),...(remote.dismissalLog||[])];
+      var seenDismiss=new Set();
+      merged.dismissalLog=allDismissals.filter(function(d){
+        var k=(d.url||'')+(d.roleName||'')+(d.company||'');
+        if(seenDismiss.has(k))return false;seenDismiss.add(k);return true;
+      }).slice(0,100);
       S=merged;save();toast('☁️ Synced from OneDrive');return true;
     }catch(e){return false;}
   },
@@ -1420,14 +1428,46 @@ function snoozePotentialRole(id){
   r.snoozeCount=(r.snoozeCount||0)+1;
   save();renderPotentialRoles();toast('\u23F0 Snoozed for 7 days');
 }
-function dismissPotentialRole(id){
-  var r=getPotentialRoles().find(function(x){return x.id===id;});
-  if(r){
-    if(r.url){if(!S.dismissedRoleUrls)S.dismissedRoleUrls=[];S.dismissedRoleUrls.push(r.url);}
-    var dk=normKey(r.name,r.companyName||r.coName||'');if(dk){if(!S.dismissedRoleKeys)S.dismissedRoleKeys=[];S.dismissedRoleKeys.push(dk);}
+function toggleDismissTag(btn,tag){
+  if(!window._dismissTags)window._dismissTags=[];
+  var idx=window._dismissTags.indexOf(tag);
+  if(idx>-1){
+    window._dismissTags.splice(idx,1);
+    btn.style.background='';
+    btn.style.borderColor='';
+  } else {
+    window._dismissTags.push(tag);
+    btn.style.background='rgba(180,30,30,.3)';
+    btn.style.borderColor='rgba(180,30,30,.6)';
   }
+}
+function confirmDismissRole(id){
+  var r=getPotentialRoles().find(function(x){return x.id===id;});
+  if(!r){closeModal();return;}
+  var tags=window._dismissTags||[];
+  var notes=_fv('dismissNotes')||'';
+  var reason=tags.length?tags.join(', ')+(notes?' — '+notes:''):notes;
+  // Store dismissal with reason in the log
+  if(!S.dismissalLog)S.dismissalLog=[];
+  S.dismissalLog.unshift({
+    date:new Date().toISOString().split('T')[0],
+    roleName:r.name,
+    company:r.companyName||r.coName||'',
+    url:r.url||'',
+    location:r.location||'',
+    reason:reason,
+    tags:tags
+  });
+  // Keep log to last 100 dismissals
+  if(S.dismissalLog.length>100)S.dismissalLog=S.dismissalLog.slice(0,100);
+  // Record URL/key so it never resurfaces
+  if(r.url){if(!S.dismissedRoleUrls)S.dismissedRoleUrls=[];S.dismissedRoleUrls.push(r.url);}
+  var dk=normKey(r.name,r.companyName||r.coName||'');
+  if(dk){if(!S.dismissedRoleKeys)S.dismissedRoleKeys=[];S.dismissedRoleKeys.push(dk);}
   S.potentialRoles=getPotentialRoles().filter(function(x){return x.id!==id;});
-  save();renderPotentialRoles();toast('\u2715 Dismissed');
+  window._dismissTags=[];
+  save();renderPotentialRoles();closeModal();
+  toast('\u2715 Dismissed'+(reason?' — reason saved':''));
 }
 function handlePrImport(input){
   var file=input.files[0];if(!file)return;
@@ -2490,6 +2530,42 @@ function buildModal(type,data){
       +'</textarea>'
       +'<div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button><button class="btn" onclick="saveCriteria()">Save Criteria</button></div>';}
 
+  if(type==='dismissalLog'){
+    var log=S.dismissalLog||[];
+    if(!log.length)return '<div class="ct">&#128221; Dismissal Log</div><p style="padding:12px;color:var(--il);font-size:13px">No dismissals logged yet.</p><div class="mf"><button class="btn bgh" onclick="closeModal()">Close</button></div>';
+    var rows=log.map(function(d){
+      return '<div style="padding:8px 0;border-bottom:1px solid rgba(200,144,32,.2)">'
+        +'<div style="display:flex;justify-content:space-between;align-items:flex-start">'
+        +'<div><div style="font-size:13px;font-weight:700">'+escH(d.roleName)+'</div>'
+        +(d.company?'<div style="font-size:11px;color:var(--il)">'+escH(d.company)+(d.location?' · '+escH(d.location):'')+'</div>':'')
+        +(d.reason?'<div style="font-size:12px;color:#e07020;margin-top:3px">'+escH(d.reason)+'</div>':'')
+        +'</div>'
+        +'<div style="font-size:10px;color:var(--il);flex-shrink:0;margin-left:8px">'+d.date+'</div>'
+        +'</div></div>';
+    }).join('');
+    return '<div class="ct">&#128221; Dismissal Log ('+log.length+')</div>'
+      +'<p style="font-size:11px;color:var(--il);margin-bottom:8px">This log is read by Cowork to avoid surfacing roles you\'ve already rejected.</p>'
+      +'<div style="max-height:350px;overflow-y:auto">'+rows+'</div>'
+      +'<div class="mf"><button class="btn bgh" onclick="closeModal()">Close</button>'
+      +'<button class="btn bgh" onclick="if(confirm(\'Clear all dismissal logs?\')){{S.dismissalLog=[];save();closeModal();toast(\'Log cleared\');}}" style="color:#e07020">Clear Log</button></div>';}
+
+  if(type==='dismissRole'){
+    var pr=getPotentialRoles().find(function(x){return x.id===data.roleId;});
+    if(!pr)return '';
+    return '<div class="ct">&#10005; Dismiss Role</div>'
+      +'<div class="tinfo"><div class="tin">'+escH(pr.name)+'</div>'
+      +'<div class="tic">'+(pr.companyName||pr.coName||'')+'</div></div>'
+      +'<label class="ilbl">Why are you dismissing this role? <span style="font-weight:400;color:var(--il)">(optional — helps Cowork filter future suggestions)</span></label>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">'
+      +['Wrong location','Wrong industry','Too junior','Too senior','Wrong company size','Already applied','Not interested in company','Low compensation','Requires relocation','Other'].map(function(r){
+        return '<button class="btn bsm bgh" style="font-size:11px" onclick="toggleDismissTag(this,\''+r+'\')">' +r+'</button>';
+      }).join('')
+      +'</div>'
+      +'<label class="ilbl">Additional notes</label>'
+      +'<textarea class="ta" id="dismissNotes" placeholder="Any other context for why this role is not a fit..." style="min-height:70px"></textarea>'
+      +'<div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button>'
+      +'<button class="btn bred" onclick="confirmDismissRole(\''+data.roleId+'\')" style="background:rgba(180,30,30,.4)">&#10005; Dismiss</button></div>';}
+
   if(type==='addPotentialRole'){
     var prCos=Object.values(S.companies).sort(function(a,b){return a.name.localeCompare(b.name);});
     return '<div class="ct">&#128269; Add Potential Role</div>'
@@ -2778,7 +2854,7 @@ if(!S.equipped)S.equipped={weapon:null,armor:null,pet:null,lodging:'tent',mount:
 if(!S.equipped.lodging)S.equipped.lodging='tent';
 if(!S.goals)S.goals={weekly_apply:5,weekly_network:3,weekly_outreach:5};
 if(!S.collapsed)S.collapsed={};
-if(!S.storeCat)S.storeCat='all';if(!S.potentialRoles)S.potentialRoles=[];if(!S.searchCriteria)S.searchCriteria={};if(!S.dismissedRoleUrls)S.dismissedRoleUrls=[];if(!S.dismissedRoleKeys)S.dismissedRoleKeys=[];if(!S.questCounts)S.questCounts={};if(!S.followUps)S.followUps=[];if(!S.emailTemplates)S.emailTemplates=null;
+if(!S.storeCat)S.storeCat='all';if(!S.potentialRoles)S.potentialRoles=[];if(!S.searchCriteria)S.searchCriteria={};if(!S.dismissedRoleUrls)S.dismissedRoleUrls=[];if(!S.dismissedRoleKeys)S.dismissedRoleKeys=[];if(!S.questCounts)S.questCounts={};if(!S.dismissalLog)S.dismissalLog=[];if(!S.followUps)S.followUps=[];if(!S.emailTemplates)S.emailTemplates=null;
 Object.values(S.companies||{}).forEach(co=>{
   if(co.hp!==undefined&&co.dmgDealt===undefined){co.dmgDealt=Math.max(0,(co.maxHp||CO_MAX)-(co.hp||0));co.maxHp=CO_MAX;delete co.hp;}
   if(!co.actLog)co.actLog=[];
@@ -2849,5 +2925,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v4.7</div>
+<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v4.8</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
