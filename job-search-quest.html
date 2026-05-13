@@ -584,7 +584,28 @@ function trimSaveData(){
   if(S.log&&S.log.length>50)S.log=S.log.slice(0,50);
 }
 function save(){
-  trimSaveData(); // keep logs lean to prevent localStorage quota issues
+  trimSaveData();
+  // Stamp last real save time for merge decisions
+  if(Object.keys(S.companies||{}).length>0||Object.keys(S.contacts||{}).length>0){
+    S.lastPopulatedSave=new Date().toISOString();
+  }
+  // Keep a rolling backup copy if we have real data
+  if(Object.keys(S.companies||{}).length>0||Object.keys(S.contacts||{}).length>0){
+    try{
+      // Trim backup to avoid quota issues
+      var bkData=JSON.parse(JSON.stringify(S));
+      Object.values(bkData.companies||{}).forEach(function(co){
+        co.actLog=(co.actLog||[]).slice(0,5);
+        Object.values(co.roles||{}).forEach(function(r){
+          r.actLog=(r.actLog||[]).slice(0,5);
+          if(r.resumeData)delete r.resumeData;
+          if(r.resumes)r.resumes=r.resumes.map(function(x){return {name:x.name,data:null};});
+        });
+      });
+      bkData.log=(bkData.log||[]).slice(0,20);
+      localStorage.setItem('jsq_backup',JSON.stringify({ts:new Date().toISOString(),companies:Object.keys(S.companies).length,contacts:Object.keys(S.contacts).length,data:bkData}));
+    } catch(e){}
+  }
   try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){
     // If quota exceeded, trim more aggressively and retry
     try{
@@ -677,7 +698,11 @@ const MSFT={
           toast('✅ Microsoft connected!');
           if(isDirty){
             // Push local changes first, THEN pull from OneDrive
-            fetch('https://graph.microsoft.com/v1.0/me/drive/root:/job-search-quest-save.json:/content',{
+            // SAFETY: only push if we actually have data
+          var hasCos=Object.keys(S.companies||{}).length>0;
+          var hasCts=Object.keys(S.contacts||{}).length>0;
+          if(!hasCos&&!hasCts){console.log('Skipping push - local data is empty');return self.syncDown().then(function(){render();renderSyncPanel();});}
+          fetch('https://graph.microsoft.com/v1.0/me/drive/root:/job-search-quest-save.json:/content',{
               method:'PUT',
               headers:{'Authorization':'Bearer '+self.token,'Content-Type':'application/json'},
               body:JSON.stringify(S)
@@ -748,10 +773,13 @@ const MSFT={
 
     async syncUp(){
     if(!this.enabled||!this.token){
-      // Token missing - mark dirty so we push when token returns
       localStorage.setItem('jsq_dirty','1');
       return;
     }
+    // SAFETY: Never push blank state
+    var coCount=Object.keys(S.companies||{}).length;
+    var ctCount=Object.keys(S.contacts||{}).length;
+    if(coCount===0&&ctCount===0&&(S.totalActions||0)===0){localStorage.setItem('jsq_dirty','1');return;}
     try{
       const id=await this.findOrCreateFile();if(!id)return;
       const blob=JSON.stringify(S);
@@ -854,6 +882,17 @@ const MSFT={
       merged.owned=[...new Set([...(S.owned||[]),...(remote.owned||[])])];
       merged.achievements=Object.assign({},(remote.achievements||{}),(S.achievements||{}));
       const seen=new Set();merged.log=[...(S.log||[]),...(remote.log||[])].filter(function(e){const k=(e.time||'')+(e.questName||'');return seen.has(k)?false:(seen.add(k),true);}).slice(0,60);
+      // SAFETY: If remote has significantly more data, prefer it entirely
+      const localCos=Object.keys(S.companies||{}).length;
+      const remoteCos=Object.keys(remote.companies||{}).length;
+      const localCts=Object.keys(S.contacts||{}).length;
+      const remoteCts=Object.keys(remote.contacts||{}).length;
+      if(remoteCos>localCos*2||remoteCts>localCts*2){
+        // Remote is substantially richer - use it as the base to prevent data loss
+        merged.companies=remote.companies;
+        merged.contacts=remote.contacts;
+        toast('\u2601\uFE0F Synced from OneDrive (remote data prioritized)');
+      }
       // Merge dismissed role URL/key lists (union)
       merged.dismissedRoleUrls=[...new Set([...(S.dismissedRoleUrls||[]),...(remote.dismissedRoleUrls||[])])];
       merged.dismissedRoleKeys=[...new Set([...(S.dismissedRoleKeys||[]),...(remote.dismissedRoleKeys||[])])];
@@ -1676,6 +1715,14 @@ function saveQuickFollowUp(){
 // ── Force Push / Reconnect ────────────────────────────────────────
 async function forcePushOneDrive(){
   if(!MSFT.enabled||!MSFT.token){toast('\u26A0 Not connected to OneDrive');return;}
+  // SAFETY: Never push blank/empty state to OneDrive
+  var coCount=Object.keys(S.companies||{}).length;
+  var ctCount=Object.keys(S.contacts||{}).length;
+  var actions=S.totalActions||0;
+  if(coCount===0&&ctCount===0&&actions===0){
+    toast('\u26A0 Local data is empty — push blocked to protect OneDrive data.');
+    return;
+  }
   try{
     // Use direct path - most reliable approach
     const resp=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/job-search-quest-save.json:/content',{
@@ -2789,6 +2836,10 @@ function buildModal(type,data){
       <textarea class="ta" id="importJson" placeholder="Paste backup JSON…" style="min-height:80px;font-family:monospace;font-size:11px"></textarea>
       <button class="btn bsm bred" onclick="doImport()">📥 Restore</button>
       <div class="divl" style="margin-top:12px"></div>
+      <div class="sm">Auto-Backup Recovery</div>
+      <p class="note" style="margin-bottom:8px">The game saves an automatic backup locally every time data is written. Use this if your data disappeared.</p>
+      <button class="btn bsm" onclick="restoreAutoBackup()">🔄 Restore from Auto-Backup</button>
+      <div class="divl" style="margin-top:12px"></div>
       <div class="sm">Danger Zone</div>
       <p class="note" style="margin-bottom:8px">Clear all local data and reload from OneDrive. Use if your local data is out of sync.</p>
       <button class="btn bsm bred" onclick="deleteLocalData()" style="background:rgba(180,30,30,.3);border-color:rgba(180,30,30,.5)">🗑 Delete Local Data & Sync from OneDrive</button>
@@ -2842,8 +2893,34 @@ function buildCSV(){const rows=[['Name','Title','City','Company','Email','Phone'
 function copyEl(id){const el=document.getElementById(id);if(el)navigator.clipboard.writeText(el.textContent).then(()=>toast('📋 Copied!'));}
 function copyFull(){navigator.clipboard.writeText(JSON.stringify(S,null,2)).then(()=>toast('📋 Copied!'));}
 function downloadJSON(){const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`jsq-backup-${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);toast('💾 Backup downloaded!');}
-function deleteLocalData(){
+function restoreAutoBackup(){
+  var raw=localStorage.getItem('jsq_backup');
+  if(!raw){toast('\u26A0 No auto-backup found.');return;}
+  try{
+    var bk=JSON.parse(raw);
+    if(!bk.data||Object.keys(bk.data.companies||{}).length===0){toast('\u26A0 Auto-backup is empty, nothing to restore.');return;}
+    if(!confirm('Restore auto-backup from '+bk.ts+'?\n'+bk.companies+' companies, '+bk.contacts+' contacts.\nThis will overwrite current local data.'))return;
+    S=bk.data;
+    localStorage.setItem('jsq_v9',JSON.stringify(S));
+    localStorage.setItem('jsq_dirty','1');
+    render();closeModal();
+    toast('\u2705 Auto-backup restored! '+bk.companies+' companies, '+bk.contacts+' contacts.');
+  }catch(e){toast('\u26A0 Could not restore backup: '+e.message);}
+}
+async function deleteLocalData(){
   if(!confirm('Delete ALL local data and reload from OneDrive?\nThis cannot be undone. Make sure OneDrive has your latest data first.'))return;
+  // Try to push current data to OneDrive before wiping
+  var hasCos=Object.keys(S.companies||{}).length>0;
+  var hasCts=Object.keys(S.contacts||{}).length>0;
+  if((hasCos||hasCts)&&MSFT.enabled&&MSFT.token){
+    toast('\u2B06\uFE0F Backing up to OneDrive first...');
+    try{
+      await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/job-search-quest-save.json:/content',{
+        method:'PUT',headers:{'Authorization':'Bearer '+MSFT.token,'Content-Type':'application/json'},
+        body:JSON.stringify(S)
+      });
+    }catch(e){}
+  }
   localStorage.removeItem('jsq_v9');
   localStorage.removeItem('jsq_dirty');
   localStorage.removeItem('jsq_preauth_backup');
@@ -2910,7 +2987,15 @@ MSFT.init();
 // renderSyncPanel called after DOM settle
 setTimeout(()=>renderSyncPanel(),0);
 
-function startApp(){renderQuestList();render();}
+function startApp(){
+  renderQuestList();render();
+  // If local data is empty and OneDrive is connected, auto-pull
+  var isEmpty=Object.keys(S.companies||{}).length===0&&Object.keys(S.contacts||{}).length===0&&(S.totalActions||0)===0;
+  if(isEmpty&&MSFT.enabled&&MSFT.token){
+    toast('\u2601\uFE0F No local data found. Loading from OneDrive...');
+    MSFT.syncDown().then(function(){render();renderSyncPanel();toast('\u2705 Data loaded from OneDrive!');});
+  }
+}
 
 if(MSFT.enabled){
   MSFT.syncDown().then(synced=>{
@@ -2938,5 +3023,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v4.9</div>
+<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v5.1</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
