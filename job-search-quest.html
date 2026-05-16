@@ -583,9 +583,8 @@ function trimSaveData(){
   });
   if(S.log&&S.log.length>50)S.log=S.log.slice(0,50);
 }
-function save(){
+function save(skipDirty){
   trimSaveData();
-  // Stamp last real save time for merge decisions
   if(Object.keys(S.companies||{}).length>0||Object.keys(S.contacts||{}).length>0){
     S.lastPopulatedSave=new Date().toISOString();
   }
@@ -617,8 +616,8 @@ function save(){
       localStorage.setItem(SK,JSON.stringify(S));
     }catch(e2){console.warn('localStorage full:',e2);}
   }
-  localStorage.setItem('jsq_dirty','1');
-  if(MSFT.enabled)MSFT.scheduleSave();
+  if(!skipDirty){localStorage.setItem('jsq_dirty','1');}
+  if(!skipDirty&&MSFT.enabled)MSFT.scheduleSave();
 }
 function load(){try{const r=localStorage.getItem(SK);if(r)S=Object.assign({companies:{},contacts:{},gold:0,owned:[],equipped:{weapon:null,armor:null,pet:null,lodging:'tent',mount:null},goals:{weekly_apply:5,weekly_network:3,weekly_outreach:5},collapsed:{},dailyGoldClaimed:null,storeCat:'all'},JSON.parse(r));}catch(e){}}
 
@@ -827,92 +826,112 @@ const MSFT={
       S=merged;save();toast('\u2601\uFE0F Synced from OneDrive (refreshed)');return true;
     }catch(e){return false;}
   },
-  async syncDown(){
+    async syncDown(){
     if(!this.enabled||!this.token)return false;
     try{
-      // Push local changes first if dirty
-      if(localStorage.getItem('jsq_dirty')==='1'){
-        const id0=await this.findOrCreateFile();
-        if(id0){
-          const pr=await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${id0}/content`,{
-            method:'PUT',headers:{'Authorization':`Bearer ${this.token}`,'Content-Type':'application/json'},body:JSON.stringify(S)
-          }).catch(function(){return null;});
-          if(pr&&pr.ok)localStorage.removeItem('jsq_dirty');
-        }
+      // SAFETY: Only push local data first if we actually have data
+      var localCosCount=Object.keys(S.companies||{}).length;
+      var localCtsCount=Object.keys(S.contacts||{}).length;
+      var hasLocalData=localCosCount>0||localCtsCount>0;
+      if(localStorage.getItem('jsq_dirty')==='1'&&hasLocalData){
+        // Push local first before pulling
+        await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/job-search-quest-save.json:/content',{
+          method:'PUT',headers:{'Authorization':`Bearer ${this.token}`,'Content-Type':'application/json'},body:JSON.stringify(S)
+        }).then(function(r){if(r.ok)localStorage.removeItem('jsq_dirty');}).catch(function(){});
+      } else if(!hasLocalData){
+        // No local data - clear dirty flag, just pull
+        localStorage.removeItem('jsq_dirty');
       }
-      const id=await this.findOrCreateFile();if(!id)return false;
-      // Try direct path first (faster, doesn't require file ID lookup)
-      let sdResp=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/job-search-quest-save.json:/content',{
+      // Pull from OneDrive using direct path
+      const resp=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/job-search-quest-save.json:/content',{
         headers:{'Authorization':`Bearer ${this.token}`}
       }).catch(function(){return null;});
-      // Fallback to item ID if direct path fails
-      const resp=sdResp&&sdResp.status!==404?sdResp:await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${id}/content`,{
-        headers:{'Authorization':`Bearer ${this.token}`}
-      });
+      if(!resp){return false;}
       if(resp.status===401){
-        // Try refresh token
         const refreshed=await MSFT.tryRefresh();
         if(refreshed){
-          const resp2=await fetch('https://graph.microsoft.com/v1.0/me/drive/items/'+id+'/content',{headers:{'Authorization':'Bearer '+MSFT.token}});
+          const resp2=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/job-search-quest-save.json:/content',{headers:{'Authorization':'Bearer '+MSFT.token}});
           if(!resp2.ok)return false;
-          const text2=await resp2.text();if(!text2||text2==='{}'||text2.length<10)return false;
-          const remote=JSON.parse(text2);
-          return MSFT._mergeAndSave(remote);
+          const text2=await resp2.text();if(!text2||text2.length<10)return false;
+          return MSFT._mergeAndSave(JSON.parse(text2));
         }
         toast('\u26A0 OneDrive token expired. Tap Reconnect.');
         return false;
       }
       if(!resp.ok)return false;
-      const text=await resp.text();if(!text||text==='{}'||text.length<10)return false;
+      const text=await resp.text();
+      if(!text||text==='{}'||text.length<10)return false;
       const remote=JSON.parse(text);
+      // SAFETY: If remote has no data either, don't bother merging
+      if(Object.keys(remote.companies||{}).length===0&&Object.keys(remote.contacts||{}).length===0){
+        toast('\u26A0 OneDrive save is empty. No data to sync.');
+        return false;
+      }
+      // Build merged state
       const merged=Object.assign({companies:{},contacts:{},gold:0,owned:[],equipped:{weapon:null,armor:null,pet:null,lodging:'tent',mount:null},goals:{weekly_apply:5,weekly_network:3,weekly_outreach:5},collapsed:{},dailyGoldClaimed:null,storeCat:'all',potentialRoles:[],searchCriteria:{}},remote);
-      new Set([...Object.keys(S.companies||{}),...Object.keys(remote.companies||{})]).forEach(function(cid){
-        const lc=S.companies&&S.companies[cid],rc=remote.companies&&remote.companies[cid];
-        if(lc&&rc){const base=(lc.dmgDealt||0)>=(rc.dmgDealt||0)?lc:rc;
-          new Set([...Object.keys(lc.roles||{}),...Object.keys(rc.roles||{})]).forEach(function(rid){
-            const lr=lc.roles&&lc.roles[rid],rr=rc.roles&&rc.roles[rid];
-            base.roles=base.roles||{};base.roles[rid]=(lr&&rr)?((lr.dmgDealt||0)>=(rr.dmgDealt||0)?lr:rr):(lr||rr);});
-          merged.companies[cid]=base;}else merged.companies[cid]=lc||rc;});
-      new Set([...Object.keys(S.contacts||{}),...Object.keys(remote.contacts||{})]).forEach(function(cid){
-        const lc=S.contacts&&S.contacts[cid],rc=remote.contacts&&remote.contacts[cid];
-        merged.contacts[cid]=(lc&&rc)?((lc.relationship||1)>=(rc.relationship||1)?lc:rc):(lc||rc);});
-      merged.xp=Math.max(S.xp||0,remote.xp||0);merged.level=Math.max(S.level||1,remote.level||1);
-      merged.gold=Math.max(S.gold||0,remote.gold||0);merged.streak=Math.max(S.streak||0,remote.streak||0);
+      // If local is empty, just use remote entirely - no merge needed
+      if(!hasLocalData){
+        merged.companies=remote.companies;
+        merged.contacts=remote.contacts;
+      } else {
+        // Merge companies
+        new Set([...Object.keys(S.companies||{}),...Object.keys(remote.companies||{})]).forEach(function(cid){
+          const lc=S.companies&&S.companies[cid],rc=remote.companies&&remote.companies[cid];
+          if(lc&&rc){
+            const base=(lc.dmgDealt||0)>=(rc.dmgDealt||0)?lc:rc;
+            new Set([...Object.keys(lc.roles||{}),...Object.keys(rc.roles||{})]).forEach(function(rid){
+              const lr=lc.roles&&lc.roles[rid],rr=rc.roles&&rc.roles[rid];
+              base.roles=base.roles||{};base.roles[rid]=(lr&&rr)?((lr.dmgDealt||0)>=(rr.dmgDealt||0)?lr:rr):(lr||rr);
+            });
+            merged.companies[cid]=base;
+          } else merged.companies[cid]=lc||rc;
+        });
+        // Merge contacts
+        new Set([...Object.keys(S.contacts||{}),...Object.keys(remote.contacts||{})]).forEach(function(cid){
+          const lc=S.contacts&&S.contacts[cid],rc=remote.contacts&&remote.contacts[cid];
+          merged.contacts[cid]=(lc&&rc)?((lc.relationship||1)>=(rc.relationship||1)?lc:rc):(lc||rc);
+        });
+        // If remote is substantially richer, prefer it
+        const remoteCos=Object.keys(remote.companies||{}).length;
+        const remoteCts=Object.keys(remote.contacts||{}).length;
+        if(remoteCos>localCosCount*2||remoteCts>localCtsCount*2){
+          merged.companies=remote.companies;
+          merged.contacts=remote.contacts;
+        }
+      }
+      merged.xp=Math.max(S.xp||0,remote.xp||0);
+      merged.level=Math.max(S.level||1,remote.level||1);
+      merged.gold=Math.max(S.gold||0,remote.gold||0);
+      merged.streak=Math.max(S.streak||0,remote.streak||0);
       merged.totalActions=Math.max(S.totalActions||0,remote.totalActions||0);
       merged.owned=[...new Set([...(S.owned||[]),...(remote.owned||[])])];
       merged.achievements=Object.assign({},(remote.achievements||{}),(S.achievements||{}));
-      const seen=new Set();merged.log=[...(S.log||[]),...(remote.log||[])].filter(function(e){const k=(e.time||'')+(e.questName||'');return seen.has(k)?false:(seen.add(k),true);}).slice(0,60);
-      // SAFETY: If remote has significantly more data, prefer it entirely
-      const localCos=Object.keys(S.companies||{}).length;
-      const remoteCos=Object.keys(remote.companies||{}).length;
-      const localCts=Object.keys(S.contacts||{}).length;
-      const remoteCts=Object.keys(remote.contacts||{}).length;
-      if(remoteCos>localCos*2||remoteCts>localCts*2){
-        // Remote is substantially richer - use it as the base to prevent data loss
-        merged.companies=remote.companies;
-        merged.contacts=remote.contacts;
-        toast('\u2601\uFE0F Synced from OneDrive (remote data prioritized)');
-      }
-      // Merge dismissed role URL/key lists (union)
+      const seen=new Set();
+      merged.log=[...(S.log||[]),...(remote.log||[])].filter(function(e){
+        const k=(e.time||'')+(e.questName||'');return seen.has(k)?false:(seen.add(k),true);
+      }).slice(0,60);
       merged.dismissedRoleUrls=[...new Set([...(S.dismissedRoleUrls||[]),...(remote.dismissedRoleUrls||[])])];
       merged.dismissedRoleKeys=[...new Set([...(S.dismissedRoleKeys||[]),...(remote.dismissedRoleKeys||[])])];
-      // Merge potential roles (dedup by URL/key)
       var prSeen=new Set();
-      var allPR=[...(S.potentialRoles||[]),...(remote.potentialRoles||[])];
-      merged.potentialRoles=allPR.filter(function(r){
+      merged.potentialRoles=[...(S.potentialRoles||[]),...(remote.potentialRoles||[])].filter(function(r){
         var u=normUrl(r.url),k=normKey(r.name,r.companyName||r.coName);
         var key=u||k;if(!key||prSeen.has(key))return false;prSeen.add(key);return true;
       });
-      // Merge dismissal logs
-      var allDismissals=[...(S.dismissalLog||[]),...(remote.dismissalLog||[])];
       var seenDismiss=new Set();
-      merged.dismissalLog=allDismissals.filter(function(d){
+      merged.dismissalLog=[...(S.dismissalLog||[]),...(remote.dismissalLog||[])].filter(function(d){
         var k=(d.url||'')+(d.roleName||'')+(d.company||'');
         if(seenDismiss.has(k))return false;seenDismiss.add(k);return true;
       }).slice(0,100);
-      S=merged;save();toast('☁️ Synced from OneDrive');return true;
-    }catch(e){return false;}
+      S=merged;
+      // Save without triggering dirty flag
+      try{localStorage.setItem('jsq_v9',JSON.stringify(S));}catch(e){}
+      localStorage.removeItem('jsq_dirty');
+      render();
+      toast('\u2601\uFE0F Synced from OneDrive');
+      return true;
+    }catch(e){console.error('syncDown error:',e);return false;}
   },
+
 
   scheduleSave(){
     clearTimeout(this.saveTimer);
@@ -2990,10 +3009,17 @@ setTimeout(()=>renderSyncPanel(),0);
 function startApp(){
   renderQuestList();render();
   // If local data is empty and OneDrive is connected, auto-pull
-  var isEmpty=Object.keys(S.companies||{}).length===0&&Object.keys(S.contacts||{}).length===0&&(S.totalActions||0)===0;
-  if(isEmpty&&MSFT.enabled&&MSFT.token){
-    toast('\u2601\uFE0F No local data found. Loading from OneDrive...');
-    MSFT.syncDown().then(function(){render();renderSyncPanel();toast('\u2705 Data loaded from OneDrive!');});
+  var isEmpty=Object.keys(S.companies||{}).length===0&&Object.keys(S.contacts||{}).length===0;
+  if(MSFT.enabled&&MSFT.token){
+    if(isEmpty){
+      localStorage.removeItem('jsq_dirty'); // never push empty state
+      toast('\u2601\uFE0F Loading from OneDrive...');
+    }
+    MSFT.syncDown().then(function(ok){
+      render();renderSyncPanel();
+      if(isEmpty&&ok)toast('\u2705 Data loaded from OneDrive!');
+      else if(isEmpty&&!ok)toast('\u26A0 Could not load from OneDrive. Check connection.');
+    });
   }
 }
 
@@ -3023,5 +3049,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v5.1</div>
+<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v5.2</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
