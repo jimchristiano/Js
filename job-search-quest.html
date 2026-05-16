@@ -631,6 +631,8 @@ const MSFT={
   token:null,
   enabled:false,
   saveTimer:null,
+  _refreshInterval:null,
+  needsReconnect:false,
   fileName:'job-search-quest-save.json',
   fileId:null,
 
@@ -790,30 +792,39 @@ const MSFT={
         localStorage.removeItem('jsq_dirty');  // clear dirty flag - OneDrive is current
         document.getElementById('syncStatus')&&(document.getElementById('syncStatus').textContent='Saved '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
       } else if(resp.status===401){
-        localStorage.setItem('jsq_dirty','1');  // keep dirty - token expired
-        toast('⚠️ OneDrive token expired. Tap Reconnect to re-sync.');
+        localStorage.setItem('jsq_dirty','1');
+        const refreshed=await this.tryRefresh();
+        if(refreshed){
+          const retryResp=await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${id}/content`,{
+            method:'PUT',headers:{'Authorization':`Bearer ${this.token}`,'Content-Type':'application/json'},
+            body:blob
+          });
+          if(retryResp.ok){
+            localStorage.removeItem('jsq_dirty');
+            document.getElementById('syncStatus')&&(document.getElementById('syncStatus').textContent='Saved '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
+          }
+        } else {
+          toast('Session expired — tap Reconnect');renderSyncPanel();
+        }
       }
     }catch(e){localStorage.setItem('jsq_dirty','1');}
   },
 
   async tryRefresh(){
     const refresh=localStorage.getItem('jsq_refresh');
-    if(!refresh)return false;
+    if(!refresh||!this.clientId)return false;
     try{
-      const cfg=JSON.parse(localStorage.getItem('jsq_msft')||'{}');
+      const body=new URLSearchParams({client_id:this.clientId,grant_type:'refresh_token',refresh_token:refresh,scope:this.scopes});
       const resp=await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token',{
-        method:'POST',
-        headers:{'Content-Type':'application/x-www-form-urlencoded'},
-        body:'grant_type=refresh_token&refresh_token='+encodeURIComponent(refresh)
-          +'&client_id='+encodeURIComponent(cfg.clientId||'3f9abf5e-21e7-499b-90da-c9a1ebc2b6b2')
-          +'&scope='+encodeURIComponent('Files.ReadWrite offline_access')
+        method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body
       });
-      if(!resp.ok)return false;
+      if(!resp.ok){this.token=null;this.enabled=false;this.saveConfig();renderSyncPanel();return false;}
       const data=await resp.json();
-      if(!data.access_token)return false;
+      if(!data.access_token){this.token=null;this.enabled=false;this.saveConfig();renderSyncPanel();return false;}
       this.token=data.access_token;
       if(data.refresh_token)localStorage.setItem('jsq_refresh',data.refresh_token);
-      renderSync();return true;
+      this.saveConfig();
+      return true;
     }catch(e){return false;}
   },
   _mergeAndSave(remote){
@@ -855,7 +866,7 @@ const MSFT={
           const text2=await resp2.text();if(!text2||text2.length<10)return false;
           return MSFT._mergeAndSave(JSON.parse(text2));
         }
-        toast('\u26A0 OneDrive token expired. Tap Reconnect.');
+        toast('Session expired \u2014 tap Reconnect');renderSyncPanel();
         return false;
       }
       if(!resp.ok)return false;
@@ -933,6 +944,15 @@ const MSFT={
   },
 
 
+  startRefreshTimer(){
+    if(this._refreshInterval)clearInterval(this._refreshInterval);
+    this._refreshInterval=setInterval(async()=>{
+      if(!this.enabled||!this.token)return;
+      const ok=await this.tryRefresh();
+      if(!ok){this.needsReconnect=true;renderSyncPanel();}
+    },45*60*1000);
+  },
+
   scheduleSave(){
     clearTimeout(this.saveTimer);
     this.saveTimer=setTimeout(()=>this.syncUp(),2000);
@@ -948,11 +968,12 @@ function renderSyncPanel(){
         <div style="font-size:13px;color:var(--green);font-weight:600">✅ Connected to OneDrive</div>
         <div id="syncStatus" style="font-size:11px;color:var(--il);margin-top:2px">Auto-saves after every action</div>
         ${localStorage.getItem('jsq_dirty')==='1'?'<div style="font-size:11px;color:#e07020;margin-top:2px">&#9888; Local changes not yet synced to OneDrive</div>':''}
+        ${MSFT.needsReconnect?'<div style="font-size:11px;color:#c03030;margin-top:2px">&#9888; Session expired — tap Reconnect</div>':''}
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn bsm bgh" data-tip="Pull latest save from OneDrive now" onclick="MSFT.syncDown().then(()=>render())">☁️ Sync Now</button>
       <button class="btn bsm bgh" title="Force push local data to OneDrive" onclick="forcePushOneDrive()">⬆️ Force Push</button>
-      <button class="btn bsm bgh" title="Reconnect / refresh token" onclick="msReconnect()">🔄 Reconnect</button>
+      <button class="btn bsm bgh" title="Reconnect / refresh token" onclick="MSFT.signIn()">🔄 Reconnect</button>
         <button class="btn bsm bgh" data-tip="Disconnect OneDrive sync" onclick="MSFT.signOut()">Sign Out</button>
       </div>
     </div>`:`
@@ -3003,6 +3024,7 @@ const dg=claimDailyGold();if(dg>0)setTimeout(()=>toast(`🏡 Daily income: +${dg
 
 // ── OneDrive sync init ────────────────────────────────────────────
 MSFT.init();
+if(MSFT.enabled&&MSFT.token)MSFT.startRefreshTimer();
 // renderSyncPanel called after DOM settle
 setTimeout(()=>renderSyncPanel(),0);
 
@@ -3049,5 +3071,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v5.2</div>
+<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v5.3</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
