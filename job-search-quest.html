@@ -356,6 +356,8 @@ body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100
         <option value="closed">Closed</option>
       </select>
       <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--il);cursor:pointer;font-family:'Cinzel',serif;white-space:nowrap"><input type="checkbox" id="hideRejected" onchange="renderArena()" style="accent-color:var(--gold)"> Hide Rejected</label>
+      <button class="btn bsm bgh" data-tip="Collapse all companies" onclick="collapseAllCompanies()" style="white-space:nowrap">⊖ Collapse All</button>
+      <button class="btn bsm bgh" data-tip="Expand all companies" onclick="expandAllCompanies()" style="white-space:nowrap">⊕ Expand All</button>
     </div>
     <div id="arena"><div class="empty">No targets yet.</div></div>
   </div>
@@ -2089,6 +2091,8 @@ function toggleCoTile(coId){
   S.collapsed[coId]=S.collapsed[coId]==='expanded'?null:'expanded';
   save();renderArena();
 }
+function collapseAllCompanies(){S.collapsed={};save();renderArena();}
+function expandAllCompanies(){if(!S.collapsed)S.collapsed={};Object.keys(S.companies||{}).forEach(function(id){S.collapsed[id]='expanded';});save();renderArena();}
 function confirmDeleteRole(coId,roleId,roleName){
   if(confirm('Delete "'+roleName+'"? This cannot be undone.')){deleteRole(coId,roleId);}
 }
