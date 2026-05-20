@@ -1646,7 +1646,7 @@ async function uploadResumeToOneDrive(name,data,coId,roleId){
 // ── Template placeholder fill ─────────────────────────────────────
 function fillTemplate(body,npc,role,company){
   var result=body;
-  if(npc){result=result.replace(/\[Name\]/g,npc.name||'[Name]');}
+  if(npc){var firstName=(npc.name||'[Name]').split(' ')[0];result=result.replace(/\[Name\]/g,firstName);}
   if(role){result=result.replace(/\[Role\]/g,role.name||'[Role]');}
   if(company){result=result.replace(/\[Company\]/g,company.name||'[Company]');}
   if(role&&role.location){
