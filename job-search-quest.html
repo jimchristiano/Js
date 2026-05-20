@@ -565,6 +565,15 @@ let S={xp:0,level:1,totalActions:0,actionsToday:0,streak:0,lastDate:null,
 function trimSaveData(){
   // Trim activity logs to prevent localStorage from filling up
   var MAX_CO_LOG=20;var MAX_ROLE_LOG=15;var MAX_CT_LOG=20;
+  // Strip any individual actLog entry whose JSON exceeds this size (catches accidental data blobs)
+  var MAX_ENTRY_BYTES=512;
+  function trimLog(log){
+    if(!log)return log;
+    // First strip oversized entries, then cap count
+    return log.filter(function(e){
+      try{return JSON.stringify(e).length<=MAX_ENTRY_BYTES;}catch(ex){return false;}
+    });
+  }
   // Always strip resume binary data before saving
   Object.values(S.companies||{}).forEach(function(co){
     Object.values(co.roles||{}).forEach(function(r){
@@ -573,13 +582,13 @@ function trimSaveData(){
     });
   });
   Object.values(S.companies||{}).forEach(function(co){
-    if(co.actLog&&co.actLog.length>MAX_CO_LOG)co.actLog=co.actLog.slice(0,MAX_CO_LOG);
+    co.actLog=trimLog(co.actLog||[]).slice(0,MAX_CO_LOG);
     Object.values(co.roles||{}).forEach(function(r){
-      if(r.actLog&&r.actLog.length>MAX_ROLE_LOG)r.actLog=r.actLog.slice(0,MAX_ROLE_LOG);
+      r.actLog=trimLog(r.actLog||[]).slice(0,MAX_ROLE_LOG);
     });
   });
   Object.values(S.contacts||{}).forEach(function(c){
-    if(c.actLog&&c.actLog.length>MAX_CT_LOG)c.actLog=c.actLog.slice(0,MAX_CT_LOG);
+    c.actLog=trimLog(c.actLog||[]).slice(0,MAX_CT_LOG);
   });
   if(S.log&&S.log.length>50)S.log=S.log.slice(0,50);
 }
@@ -3054,5 +3063,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v5.4</div>
+<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v5.5</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
