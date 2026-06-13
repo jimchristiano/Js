@@ -15,7 +15,16 @@ body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100
 .game{width:100%;max-width:940px;display:flex;flex-direction:column;gap:12px}
 .card{background:var(--p);border:2px solid var(--gd);border-radius:4px;padding:14px;box-shadow:0 4px 20px rgba(0,0,0,.5)}
   .ct{font-family:'Cinzel',serif;font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--gd);border-bottom:1px solid var(--gd);padding-bottom:6px;margin-bottom:10px;font-weight:700}
+/* Sync Bar */
+.sync-bar{background:rgba(0,0,0,.35);border:1px solid var(--gd);border-radius:4px;padding:7px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px;font-size:12px}
+.sync-bar-status{display:flex;align-items:center;gap:6px;flex:1;min-width:120px}
+.sync-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.sync-dot.on{background:#2a7a2a;box-shadow:0 0 6px #2a7a2a}
+.sync-dot.off{background:#8b1a1a;box-shadow:0 0 6px #8b1a1a}
+.sync-bar-btns{display:flex;gap:6px;flex-wrap:wrap}
+.sync-bar-connect{display:flex;gap:6px;align-items:center;flex:1;flex-wrap:wrap}
 /* Hero */
+
 .hero-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .av{width:72px;height:72px;border-radius:50%;border:3px solid var(--gold);background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0;box-shadow:0 0 15px rgba(201,168,76,.4);position:relative}
 .av-pet{position:absolute;bottom:-4px;right:-4px;font-size:16px;background:var(--bg);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border:2px solid var(--gold)}
@@ -264,6 +273,8 @@ body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100
 </div>
 
 <div class="game">
+  <!-- Sync Bar -->
+  <div id="syncBar"></div>
   <!-- Lore Banner -->
   <div class="lore-banner" id="loreBanner">
     "The Kingdom of Employment lies beyond the fog. Every application is an arrow loosed. Every interview a battle joined. Every offer — a fortress taken. Spend your gold wisely, hero. The right sword wins the right war."
@@ -943,6 +954,7 @@ const MSFT={
       try{localStorage.setItem('jsq_v9',JSON.stringify(S));}catch(e){}
       localStorage.removeItem('jsq_dirty');
       render();
+      renderSyncBar();
       toast('\u2601\uFE0F Synced from OneDrive');
       return true;
     }catch(e){console.error('syncDown error:',e);return false;}
@@ -955,7 +967,38 @@ const MSFT={
   }
 };
 
+function renderSyncBar(){
+  var el=document.getElementById('syncBar');if(!el)return;
+  var connected=!!(MSFT.token&&MSFT.enabled);
+  var dirty=localStorage.getItem('jsq_dirty')==='1';
+  if(connected){
+    el.innerHTML='<div class="sync-bar">'
+      +'<div class="sync-bar-status">'
+      +'<div class="sync-dot on"></div>'
+      +'<span style="color:var(--gl);font-weight:600">OneDrive</span>'
+      +(dirty?'<span style="color:#e07020;font-size:11px">&#9888; unsynced</span>':'')
+      +'</div>'
+      +'<div class="sync-bar-btns">'
+      +'<button class="btn bsm bgh" onclick="MSFT.syncDown().then(function(){render();renderSyncBar();})" title="Pull from OneDrive">&#x2601;&#xFE0F; Sync</button>'
+      +'<button class="btn bsm bgh" onclick="forcePushOneDrive()" title="Push to OneDrive">&#x2B06;&#xFE0F; Push</button>'
+      +'<button class="btn bsm bgh" onclick="msReconnect()" title="Reconnect">&#x1F504; Reconnect</button>'
+      +'</div>'
+      +'</div>';
+  } else {
+    el.innerHTML='<div class="sync-bar">'
+      +'<div class="sync-bar-status">'
+      +'<div class="sync-dot off"></div>'
+      +'<span style="color:var(--il)">OneDrive disconnected</span>'
+      +'</div>'
+      +'<div class="sync-bar-connect">'
+      +'<input class="ti" id="syncBarClientId" placeholder="Client ID" value="'+escH(MSFT.clientId||'')+'" style="flex:1;min-width:200px;font-size:11px;padding:4px 8px;height:28px">'
+      +'<button class="btn bsm" onclick="MSFT.clientId=document.getElementById(\'syncBarClientId\').value.trim();MSFT.saveConfig();MSFT.signIn()" style="height:28px">Connect</button>'
+      +'</div>'
+      +'</div>';
+  }
+}
 function renderSyncPanel(){
+  renderSyncBar();
   const el=document.getElementById('syncPanel');if(!el)return;
   const connected=!!(MSFT.token&&MSFT.enabled);
   el.innerHTML=connected?`
@@ -1770,7 +1813,7 @@ async function forcePushOneDrive(){
     });
     if(resp.ok){
       localStorage.removeItem('jsq_dirty');
-      renderSyncPanel();
+      renderSyncPanel();renderSyncBar();
       toast('\u2B06\uFE0F Pushed to OneDrive!');
       return;
     }
@@ -1854,7 +1897,7 @@ function render(){
     `<div class="eq-item"><span class="ei">${i.icon}</span><span class="en">${i.name}</span></div>`).join('');
 
   renderPipeline();renderGoals();renderReminders();renderPotentialRoles();renderCriteria();renderFollowUps();renderTemplates();
-  renderDots();renderLog();renderArena();renderStore();renderAch();renderSyncPanel();
+  renderDots();renderLog();renderArena();renderStore();renderAch();renderSyncPanel();renderSyncBar();
 }
 
 function renderPipeline(){
@@ -3086,5 +3129,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v5.7</div>
+<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v5.8</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
