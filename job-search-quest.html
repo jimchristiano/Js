@@ -1781,31 +1781,73 @@ function quickFollowUp(opts){
   // opts are spread into _ctx by openModal, so saveQuickFollowUp reads from _ctx directly
   openModal('quickFollowUp',opts);
 }
+function buildCoDropdown(selId,onChangeStr,selectedCoId){
+  var opts='<option value="">Select company...</option>';
+  Object.values(S.companies||{}).slice().sort(function(a,b){return a.name.localeCompare(b.name);}).forEach(function(co){
+    opts+='<option value="'+co.id+'"'+(selectedCoId===co.id?' selected':'')+'>'+escH(co.name)+'</option>';
+  });
+  return '<select class="ti" id="'+selId+'" onchange="'+onChangeStr+'">'+opts+'</select>';
+}
+function buildContactDropdown(selId,coId,selectedContactId){
+  var cts=Object.values(S.contacts||{}).filter(function(c){return !coId||c.companyId===coId;});
+  cts.sort(function(a,b){return a.name.localeCompare(b.name);});
+  var opts='<option value="">Select contact...</option>';
+  cts.forEach(function(c){
+    opts+='<option value="'+c.id+'"'+(selectedContactId===c.id?' selected':'')+'>'+escH(c.name)+(c.title?' — '+escH(c.title):'')+' ('+(c.phone||c.email||'no contact info')+')'+'</option>';
+  });
+  return '<select class="ti" id="'+selId+'">'+opts+'</select>';
+}
+function filterFuContacts(coSelId,ctSelId){
+  var coId=document.getElementById(coSelId)?document.getElementById(coSelId).value:'';
+  var ctEl=document.getElementById(ctSelId);if(!ctEl)return;
+  var prev=ctEl.value;
+  ctEl.innerHTML=buildContactDropdown('_tmp',coId,'').replace('<select class="ti" id="_tmp">','').replace('</select>','');
+  if(prev)ctEl.value=prev;
+}
 function saveActivityFollowUp(){
   var atype=_v('afuType');if(!atype)return;
   var actDate=_v('afuActivityDate')||new Date().toISOString().split('T')[0];
-  var role=_v('afuRole')||'';
-  var contact=_v('afuContact')||'';
+  var coId=_v('afuCo')||_ctx.coId||null;
+  var contactId=_v('afuContact')||_ctx.contactId||null;
+  var co=coId&&S.companies&&S.companies[coId];
+  var ct=contactId&&S.contacts&&S.contacts[contactId];
+  var role=_v('afuRole')||_ctx.roleName||'';
   var notes=_v('afuNotes')||'';
   var date=_v('afuDate');if(!date)return;
-  var label=_v('afuLabel')||('Follow up after '+atype+(role?' — '+role:''));
+  var coName=co?co.name:(_ctx.coName||'');
+  var label=_v('afuLabel')||('Follow up after '+atype+(role?' — '+role:coName?' @ '+coName:''));
   if(!S.followUps)S.followUps=[];
   S.followUps.push({id:uid(),fuType:'activity',activityType:atype,activityDate:actDate,
-    role:role,contactName:contact,notes:notes,label:label,date:date,
-    coId:_ctx.coId||null,coName:_ctx.coName||'',roleId:_ctx.roleId||null,contactId:_ctx.contactId||null});
+    role:role,notes:notes,label:label,date:date,
+    coId:coId,coName:coName,
+    contactId:contactId,
+    contactName:ct?ct.name:'',
+    contactPhone:ct?ct.phone||'':'',
+    contactEmail:ct?ct.email||'':'',
+    contactTitle:ct?ct.title||'':'',
+    roleId:_ctx.roleId||null});
   save();render();closeModal();toast('📋 Activity logged + reminder set!');
 }
 function saveProspectingFollowUp(){
   var contactId=_v('pfuContact');if(!contactId){toast('⚠ Please select a contact');return;}
+  var coId=_v('pfuCo')||null;
   var ct=S.contacts&&S.contacts[contactId];
+  var co=coId&&S.companies&&S.companies[coId];
   var topic=_v('pfuTopic')||'';
   var method=_v('pfuMethod')||'LinkedIn';
   var notes=_v('pfuNotes')||'';
   var date=_v('pfuDate');if(!date)return;
+  var coName=co?co.name:(ct?ct.companyName||'':'');
   var label=_v('pfuLabel')||(ct?'Prospect '+ct.name+' on upcoming roles':'Prospecting follow-up');
   if(!S.followUps)S.followUps=[];
-  S.followUps.push({id:uid(),fuType:'prospecting',contactId:contactId,
-    contactName:ct?ct.name:'',coId:ct?ct.companyId||null:null,coName:ct?ct.companyName||'':'',
+  S.followUps.push({id:uid(),fuType:'prospecting',
+    contactId:contactId,
+    contactName:ct?ct.name:'',
+    contactPhone:ct?ct.phone||'':'',
+    contactEmail:ct?ct.email||'':'',
+    contactTitle:ct?ct.title||'':'',
+    coId:coId||(ct?ct.companyId||null:null),
+    coName:coName,
     topic:topic,method:method,notes:notes,label:label,date:date});
   save();render();closeModal();toast('🔍 Prospecting follow-up saved!');
 }
@@ -2283,7 +2325,7 @@ function printCallSheet(){
     +'<table><thead><tr><th>COMPANY</th><th>NAME</th><th>TITLE</th><th>PHONE</th><th>EMAIL</th><th>ROLES</th><th>FOLLOW-UP</th><th>NOTES</th></tr></thead><tbody>'
     +ctRows+'</tbody></table>'
     +(fuRows?'<div class="fu-section"><h2>Scheduled Follow-Ups</h2>'
-      +'<table><thead><tr><th>DATE</th><th>COMPANY</th><th>ITEM</th><th>NOTES</th></tr></thead><tbody>'
+      +'<table><thead><tr><th>DATE</th><th>TYPE</th><th>COMPANY</th><th>CONTACT</th><th>PHONE</th><th>ITEM</th><th>NOTES</th></tr></thead><tbody>'
       +fuRows+'</tbody></table></div>':'')
     +'</body></html>');
   win.document.close();
@@ -2366,7 +2408,7 @@ function renderArena(){
     tile+='<button class="btn bsm bgh" title="Log email" onclick="openModal(\'emailOutreach\',{coId:\''+cid+'\'})">&#9993;&#65039;</button>';
     tile+='<button class="btn bsm bgh" title="Activity log" onclick="openModal(\'viewLog\',{coId:\''+cid+'\',title:\''+escHRaw(co.name)+'\'})">&#128203;</button>';
     tile+='<button class="btn bsm bgh" title="Edit company" onclick="openModal(\'editCompany\',{coId:\''+cid+'\'})">&#9999;&#65039;</button>';
-    tile+='<button class="btn bsm bgh" title="Add follow-up" onclick="quickFollowUp({coId:\''+cid+'\',coName:\''+escHRaw(co.name)+'\'})">&#9200;</button>';
+    tile+='<button class="btn bsm bgh" title="Add follow-up" onclick="openModal(\'addFollowUpType\',{coId:\''+cid+'\',coName:\''+escHRaw(co.name)+'\'})">&#9200;</button>';
     tile+='</div>';
 
     // Content area
@@ -2390,7 +2432,7 @@ function renderArena(){
       tile+='<div style="display:flex;gap:4px;margin-top:5px" onclick="event.stopPropagation()">';
       tile+='<button class="btn bsm bgh" title="Log call" style="font-size:10px;padding:2px 7px" onclick="openModal(\'phoneOutreach\',{contactId:\''+ctid+'\'})">&#128222;</button>';
       tile+='<button class="btn bsm bgh" title="Log email" style="font-size:10px;padding:2px 7px" onclick="openModal(\'emailOutreach\',{contactId:\''+ctid+'\'})">&#9993;&#65039;</button>';
-      tile+='<button class="btn bsm bgh" title="Follow-up" style="font-size:10px;padding:2px 6px" onclick="quickFollowUp({contactId:\''+ctid+'\',contactName:\''+ctn+'\',coId:\''+cid+'\',coName:\''+escHRaw(co.name)+'\'})">&#9200;</button>';
+      tile+='<button class="btn bsm bgh" title="Follow-up" style="font-size:10px;padding:2px 6px" onclick="openModal(\'addFollowUpType\',{contactId:\''+ctid+'\',contactName:\''+ctn+'\',coId:\''+cid+'\',coName:\''+escHRaw(co.name)+'\'})">&#9200;</button>';
       tile+='<button class="btn bsm bgh" title="Log response" style="font-size:10px;padding:2px 5px" onclick="openModal(\'logResponse\',{contactId:\''+ctid+'\'})">&#128232;</button>';
       tile+='</div></div></div>';
     });
@@ -2428,7 +2470,7 @@ function renderArena(){
         if(r.resumes&&r.resumes.length)tile+='<button class="btn bsm bgh" style="padding:3px 8px;font-size:11px" onclick="openModal(\'viewResumes\',{coId:\''+cid+'\',roleId:\''+rid+'\'})">&#128196;'+r.resumes.length+'</button>';
         tile+='<button class="btn bsm bgh" title="Edit" style="padding:3px 8px;font-size:11px" onclick="openModal(\'editRole\',{coId:\''+cid+'\',roleId:\''+rid+'\'})">&#9999;&#65039;</button>';
         tile+='<button class="btn bsm bgh" title="Log call" style="padding:3px 8px;font-size:11px" onclick="openModal(\'phoneOutreach\',{roleId:\''+rid+'\',coId:\''+cid+'\'})">&#128222;</button>';
-        tile+='<button class="btn bsm bgh" title="Follow-up" style="padding:3px 8px;font-size:11px" onclick="quickFollowUp({roleId:\''+rid+'\',roleName:\''+rn+'\',coId:\''+cid+'\',coName:\''+escHRaw(co.name)+'\'})">&#9200;</button>';
+        tile+='<button class="btn bsm bgh" title="Follow-up" style="padding:3px 8px;font-size:11px" onclick="openModal(\'addFollowUpType\',{roleId:\''+rid+'\',roleName:\''+rn+'\',coId:\''+cid+'\',coName:\''+escHRaw(co.name)+'\'})">&#9200;</button>';
         tile+='<button class="btn bsm bgh" title="Import JD" style="padding:3px 8px;font-size:11px" onclick="importJobDesc(\''+cid+'\',\''+rid+'\')">&#128221;</button>';
         tile+='<button class="btn bsm bgh" title="Log email" style="padding:3px 8px;font-size:11px" onclick="openModal(\'emailOutreach\',{roleId:\''+rid+'\',coId:\''+cid+'\'})">&#9993;&#65039;</button>';
         tile+='<button class="btn bsm bred" title="Delete role" style="padding:3px 8px;font-size:11px" onclick="confirmDeleteRole(\''+cid+'\',\''+rid+'\',\''+rn+'\')">&#128465;</button>';
@@ -2644,17 +2686,21 @@ function buildModal(type,data){
   if(type==='activityFollowUp'){
     var d=new Date();d.setDate(d.getDate()+7);
     var defDate=d.toISOString().split('T')[0];
+    var preCoId=data.coId||'';
+    var preCtId=data.contactId||'';
     return '<div class="ct">📋 Activity Follow-Up</div>'
       +'<p class="note" style="margin-bottom:8px">Log what happened and set a reminder for your next step.</p>'
       +'<label class="ilbl">Activity Type *</label>'
       +'<select class="ti" id="afuType"><option value="Applied">Applied</option><option value="Phone Screen">Phone Screen</option><option value="Interview">Interview</option><option value="Emailed">Emailed</option><option value="Called">Called</option><option value="Offer Received">Offer Received</option><option value="Other">Other</option></select>'
       +'<label class="ilbl">Date of Activity *</label>'
       +'<input class="ti" id="afuActivityDate" type="date" value="'+new Date().toISOString().split('T')[0]+'">'
-      +'<label class="ilbl">Role / Company</label>'
-      +'<input class="ti" id="afuRole" placeholder="e.g. Director of Sales @ Wesco" value="'+escH((data.roleName||'')+(data.coName?' @ '+data.coName:''))+'">'
-      +'<label class="ilbl">Contact (if applicable)</label>'
-      +'<input class="ti" id="afuContact" placeholder="Name, title" value="'+escH(data.contactName||'')+'">'
-      +'<label class="ilbl">Notes — what happened, who was involved, key topics, next steps mentioned</label>'
+      +'<label class="ilbl">Company</label>'
+      +buildCoDropdown('afuCo',"filterFuContacts('afuCo','afuContact')",preCoId)
+      +'<label class="ilbl">Contact</label>'
+      +buildContactDropdown('afuContact',preCoId,preCtId)
+      +'<label class="ilbl">Role (optional)</label>'
+      +'<input class="ti" id="afuRole" placeholder="e.g. Director of Sales" value="'+escH(data.roleName||'')+'">'
+      +'<label class="ilbl">Notes — what happened, key topics, next steps mentioned</label>'
       +'<textarea class="ta" id="afuNotes" placeholder="Be specific. This is your memory of what happened." style="min-height:80px"></textarea>'
       +'<label class="ilbl">Follow-Up Reminder Date *</label>'
       +'<input class="ti" id="afuDate" type="date" value="'+defDate+'">'
@@ -2666,22 +2712,20 @@ function buildModal(type,data){
   if(type==='prospectingFollowUp'){
     var d2=new Date();d2.setDate(d2.getDate()+7);
     var defDate2=d2.toISOString().split('T')[0];
-    var npcOpts=Object.values(S.contacts||{}).map(function(c){
-      return '<option value="'+c.id+'"'+(data.contactId===c.id?' selected':'')+'>'
-        +escH(c.name)+(c.companyName?' @ '+escH(c.companyName):'')
-        +(c.title?' — '+escH(c.title):'')
-        +'</option>';
-    }).join('');
+    var preCoId2=data.coId||'';
+    var preCtId2=data.contactId||'';
     return '<div class="ct">🔍 Prospecting Follow-Up</div>'
       +'<p class="note" style="margin-bottom:8px">Reach out to ask about upcoming roles.</p>'
+      +'<label class="ilbl">Company</label>'
+      +buildCoDropdown('pfuCo',"filterFuContacts('pfuCo','pfuContact')",preCoId2)
       +'<label class="ilbl">Contact *</label>'
-      +'<select class="ti" id="pfuContact"><option value="">Select a contact...</option>'+npcOpts+'</select>'
+      +buildContactDropdown('pfuContact',preCoId2,preCtId2)
       +'<label class="ilbl">What are you asking about?</label>'
       +'<input class="ti" id="pfuTopic" placeholder="e.g. Director-level openings, regional sales roles">'
       +'<label class="ilbl">Outreach Method</label>'
       +'<select class="ti" id="pfuMethod"><option>LinkedIn</option><option>Email</option><option>Phone</option><option>Text</option><option>In Person</option></select>'
       +'<label class="ilbl">Notes</label>'
-      +'<textarea class="ta" id="pfuNotes" placeholder="Why this person? Prior relationship? What you know about their hiring plans..." style="min-height:70px"></textarea>'
+      +'<textarea class="ta" id="pfuNotes" placeholder="Why this person? What you know about their hiring plans..." style="min-height:70px"></textarea>'
       +'<label class="ilbl">Follow-Up Date *</label>'
       +'<input class="ti" id="pfuDate" type="date" value="'+defDate2+'">'
       +'<label class="ilbl">Reminder Label</label>'
@@ -3228,5 +3272,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v5.9</div>
+<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v5.11</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
