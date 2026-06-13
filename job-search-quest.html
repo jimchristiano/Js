@@ -2720,18 +2720,28 @@ function buildModal(type,data){
       +'<button class="btn" onclick="saveJobDesc()">Save Description</button></div>';}
 
   if(type==='addFollowUpType'){
+    // Capture current context to pass through to sub-modals
+    var _fuCtx={
+      contactId:data.contactId||null,
+      contactName:data.contactName||'',
+      coId:data.coId||null,
+      coName:data.coName||'',
+      roleId:data.roleId||null,
+      roleName:data.roleName||''
+    };
+    var ctxJson=JSON.stringify(_fuCtx).replace(/'/g,"\\'");
     return '<div class="ct">Add Follow-Up</div>'
       +'<p class="note" style="margin-bottom:12px">What kind of follow-up?</p>'
       +'<div style="display:flex;flex-direction:column;gap:10px">'
-      +'<button class="btn bgh" onclick="closeModal();openModal(\'activityFollowUp\',{})" style="padding:14px;text-align:left">'
+      +'<button class="btn bgh" onclick="closeModal();openModal(\'activityFollowUp\','+ctxJson+')" style="padding:14px;text-align:left">'
       +'<div style="font-size:13px;font-weight:700;margin-bottom:4px">📋 Activity Follow-Up</div>'
       +'<div style="font-size:11px;color:var(--il);font-weight:400">Log something that already happened (applied, interviewed, emailed) and set a next step.</div>'
       +'</button>'
-      +'<button class="btn bgh" onclick="closeModal();openModal(\'prospectingFollowUp\',{})" style="padding:14px;text-align:left">'
+      +'<button class="btn bgh" onclick="closeModal();openModal(\'prospectingFollowUp\','+ctxJson+')" style="padding:14px;text-align:left">'
       +'<div style="font-size:13px;font-weight:700;margin-bottom:4px">🔍 Prospecting Follow-Up</div>'
       +'<div style="font-size:11px;color:var(--il);font-weight:400">Outreach to an NPC asking about upcoming roles. Linked to a specific contact.</div>'
       +'</button>'
-      +'<button class="btn bgh" onclick="closeModal();quickFollowUp({})" style="padding:14px;text-align:left">'
+      +'<button class="btn bgh" onclick="closeModal();quickFollowUp({contactId:\''+(data.contactId||'')+'\',contactName:\''+(data.contactName||'')+'\',coId:\''+(data.coId||'')+'\',coName:\''+(data.coName||'')+'\'})" style="padding:14px;text-align:left">'
       +'<div style="font-size:13px;font-weight:700;margin-bottom:4px">⏰ General Reminder</div>'
       +'<div style="font-size:11px;color:var(--il);font-weight:400">A simple date-based reminder.</div>'
       +'</button></div>'
