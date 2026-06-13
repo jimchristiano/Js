@@ -2269,125 +2269,87 @@ function printCallSheet(){
   var today=new Date().toLocaleDateString([],{month:'short',day:'numeric',year:'numeric'});
   var win=window.open('','_blank');
   var css=
-    'body{font-family:Arial,sans-serif;color:#111;margin:24px;background:#fff;}'+
-    'h1{font-size:26px;margin:0 0 4px;letter-spacing:-0.5px;}'+
-    '.date{color:#666;font-size:13px;margin-bottom:24px;}'+
-    '.fu-card{border:1px solid #ccc;border-radius:6px;padding:16px 20px;margin-bottom:16px;page-break-inside:avoid;}'+
-    '.fu-card.overdue{border-color:#c0392b;border-left:5px solid #c0392b;}'+
-    '.fu-card.activity{border-left:5px solid #2a6a8a;}'+
-    '.fu-card.prospecting{border-left:5px solid #2a7a2a;}'+
-    '.fu-card.general{border-left:5px solid #888;}'+
-    '.fu-type{font-size:10px;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:6px;}'+
+    'body{font-family:Arial,sans-serif;color:#111;margin:16px;font-size:13px;}'+
+    'h1{font-size:18px;margin:0 0 2px;}'+
+    '.date{color:#888;font-size:11px;margin-bottom:12px;}'+
+    'table{width:100%;border-collapse:collapse;margin-bottom:0;}'+
+    'th{background:#1a1a1a;color:#f0d890;text-align:left;padding:5px 8px;font-size:10px;letter-spacing:.8px;white-space:nowrap;}'+
+    'td{padding:5px 8px;border-bottom:1px solid #e0e0e0;vertical-align:top;}'+
+    'tr:nth-child(even) td{background:#f7f7f7;}'+
+    'tr.overdue td{background:#fff0ee;}'+
+    'tr.overdue .fu-date{color:#c0392b;font-weight:700;}'+
+    '.fu-date{font-size:11px;white-space:nowrap;color:#555;}'+
+    '.fu-type{font-size:9px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;white-space:nowrap;}'+
     '.fu-type.activity{color:#2a6a8a;}'+
     '.fu-type.prospecting{color:#2a7a2a;}'+
-    '.fu-type.overdue{color:#c0392b;}'+
-    '.fu-label{font-size:20px;font-weight:700;margin-bottom:10px;line-height:1.2;}'+
-    '.fu-date{font-size:15px;font-weight:700;margin-bottom:10px;}'+
-    '.fu-date.overdue{color:#c0392b;}'+
-    '.fu-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;margin-bottom:8px;}'+
-    '.fu-field label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#888;display:block;margin-bottom:1px;}'+
-    '.fu-field span{font-size:16px;font-weight:600;}'+
-    '.fu-field a{font-size:16px;font-weight:600;color:#111;text-decoration:none;}'+
-    '.fu-notes{font-size:13px;color:#444;font-style:italic;margin-top:8px;padding-top:8px;border-top:1px solid #eee;}'+
-    '.fu-activity-row{font-size:13px;color:#2a6a8a;margin-bottom:6px;}'+
-    '.empty{color:#888;font-size:14px;margin-top:40px;}'+
-    '@media print{body{margin:12px;} .fu-card{margin-bottom:12px;padding:12px 14px;} .fu-label{font-size:17px;} .fu-field span,.fu-field a{font-size:14px;}}';
+    '.phone{font-size:15px;font-weight:700;white-space:nowrap;}'+
+    '.phone a{color:#111;text-decoration:none;}'+
+    '.who{font-weight:700;}'+
+    '.who-title{color:#666;font-size:11px;}'+
+    '.co{color:#555;font-size:11px;}'+
+    '.why{font-size:12px;color:#333;}'+
+    '.notes-txt{font-size:11px;color:#777;font-style:italic;}'+
+    '@media print{body{margin:8px;} td,th{padding:4px 6px;}}';
 
-  // Collect all open follow-ups and enrich with contact data
-  var fus=(S.followUps||[]).filter(function(f){return f.date;}).sort(function(a,b){
-    return a.date.localeCompare(b.date);
-  });
+  // Collect all follow-ups
+  var fus=(S.followUps||[]).filter(function(f){return f.date;});
 
-  // Also collect role and contact follow-up dates
-  var extraFus=[];
+  // Add role follow-up dates
   Object.values(S.companies||{}).forEach(function(co){
     Object.values(co.roles||{}).forEach(function(r){
-      if(r.followUpDate){
-        extraFus.push({
-          fuType:'general',label:'Follow up on '+r.name,date:r.followUpDate,
-          coName:co.name,notes:''
-        });
-      }
+      if(r.followUpDate)fus.push({fuType:'general',label:'Follow up on '+r.name,date:r.followUpDate,coName:co.name});
     });
   });
+
+  // Add contact follow-up dates
   Object.values(S.contacts||{}).forEach(function(c){
-    if(c.followUpDate){
-      extraFus.push({
-        fuType:'general',label:'Follow up with '+c.name,date:c.followUpDate,
-        contactName:c.name,contactTitle:c.title||'',contactPhone:c.phone||'',
-        contactEmail:c.email||'',coName:c.companyName||'',notes:c.notes||''
-      });
-    }
+    if(c.followUpDate)fus.push({
+      fuType:'general',label:'Follow up with '+c.name,date:c.followUpDate,
+      contactId:c.id,contactName:c.name,contactTitle:c.title||'',
+      contactPhone:c.phone||'',contactEmail:c.email||'',coName:c.companyName||''
+    });
   });
 
-  var allFus=fus.concat(extraFus).sort(function(a,b){return a.date.localeCompare(b.date);});
+  fus.sort(function(a,b){return a.date.localeCompare(b.date);});
 
-  var cards=allFus.map(function(f){
+  var rows=fus.map(function(f){
     var overdue=new Date(f.date+'T23:59:59')<new Date();
     var fuType=f.fuType||'general';
-    var dateStr=new Date(f.date+'T12:00:00').toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'});
 
-    // Get contact info - either stored on follow-up or look up by contactId
+    // Get contact info
     var ct=f.contactId&&S.contacts&&S.contacts[f.contactId];
+    var phone=f.contactPhone||(ct?ct.phone||'':'')||'';
     var ctName=f.contactName||(ct?ct.name:'')||'';
     var ctTitle=f.contactTitle||(ct?ct.title:'')||'';
-    var ctPhone=f.contactPhone||(ct?ct.phone:'')||'';
-    var ctEmail=f.contactEmail||(ct?ct.email:'')||'';
     var coName=f.coName||'';
 
-    var typeLabel=fuType==='activity'?'📋 Activity Follow-Up':
-                  fuType==='prospecting'?'🔍 Prospecting':
-                  overdue?'⚠️ OVERDUE':'Reminder';
-    var typeCls=overdue?'overdue':fuType;
-
-    var card='<div class="fu-card '+typeCls+'">';
-    card+='<div class="fu-type '+typeCls+'">'+typeLabel+'</div>';
-    card+='<div class="fu-date'+(overdue?' overdue':'')+'">'+dateStr+(overdue?' — OVERDUE':'' )+'</div>';
-    card+='<div class="fu-label">'+escH(f.label)+'</div>';
-
-    // Activity details
-    if(fuType==='activity'&&f.activityType){
-      card+='<div class="fu-activity-row">'+(f.activityType)+
-        (f.activityDate?' on '+new Date(f.activityDate+'T12:00:00').toLocaleDateString([],{month:'short',day:'numeric'}):'')+'</div>';
+    // Build "why" from label + activity context + topic
+    var why=escH(f.label||'');
+    if(f.activityType){
+      why='<strong>'+escH(f.activityType)+'</strong>'+(f.activityDate?' on '+new Date(f.activityDate+'T12:00:00').toLocaleDateString([],{month:'short',day:'numeric'}):'');
+      if(f.label&&f.label!==('Follow up after '+f.activityType))why+=' — '+escH(f.label);
     }
+    if(f.topic)why+=(why?' | ':'')+escH(f.topic);
 
-    // Contact info grid
-    var hasContact=ctName||ctPhone||ctEmail||coName;
-    if(hasContact){
-      card+='<div class="fu-grid">';
-      if(ctName){
-        card+='<div class="fu-field"><label>Contact</label><span>'+escH(ctName)+(ctTitle?' — '+escH(ctTitle):'')+'</span></div>';
-      }
-      if(coName){
-        card+='<div class="fu-field"><label>Company</label><span>'+escH(coName)+'</span></div>';
-      }
-      if(ctPhone){
-        card+='<div class="fu-field"><label>Phone</label><a href="tel:'+escH(ctPhone)+'">'+fmtPhone(ctPhone)+'</a></div>';
-      }
-      if(ctEmail){
-        card+='<div class="fu-field"><label>Email</label><a href="mailto:'+escH(ctEmail)+'">'+escH(ctEmail)+'</a></div>';
-      }
-      if(fuType==='prospecting'&&f.method){
-        card+='<div class="fu-field"><label>Via</label><span>'+escH(f.method)+'</span></div>';
-      }
-      if(fuType==='prospecting'&&f.topic){
-        card+='<div class="fu-field"><label>Asking About</label><span>'+escH(f.topic)+'</span></div>';
-      }
-      card+='</div>';
-    }
+    var typeLabel=fuType==='activity'?'Activity':fuType==='prospecting'?'Prospect':'Reminder';
+    var typeCls=fuType==='activity'?'activity':fuType==='prospecting'?'prospecting':'';
 
-    if(f.notes){
-      card+='<div class="fu-notes">'+escH(f.notes)+'</div>';
-    }
-    card+='</div>';
-    return card;
+    var dateStr=new Date(f.date+'T12:00:00').toLocaleDateString([],{month:'short',day:'numeric'});
+
+    return '<tr class="'+(overdue?'overdue':'')+'">'+
+      '<td><div class="fu-date">'+(overdue?'⚠ ':'')+dateStr+'</div><div class="fu-type '+typeCls+'">'+typeLabel+'</div></td>'+
+      '<td>'+(phone?'<div class="phone"><a href="tel:'+escH(phone)+'">'+fmtPhone(phone)+'</a></div>':'<div style="color:#bbb;font-size:12px">—</div>')+'</td>'+
+      '<td><div class="who">'+escH(ctName)+'</div>'+(ctTitle?'<div class="who-title">'+escH(ctTitle)+'</div>':'')+(coName?'<div class="co">'+escH(coName)+'</div>':'')+'</td>'+
+      '<td><div class="why">'+why+'</div>'+(f.notes?'<div class="notes-txt">'+escH(f.notes.slice(0,100))+(f.notes.length>100?'…':'')+'</div>':'')+'</td>'+
+      '</tr>';
   }).join('');
 
-  win.document.write('<!DOCTYPE html><html><head><title>Follow-Up Call Sheet — '+today+'</title>'+
+  win.document.write('<!DOCTYPE html><html><head><title>Call Sheet — '+today+'</title>'+
     '<style>'+css+'</style></head><body>'+
-    '<h1>Follow-Up Call Sheet</h1>'+
-    '<div class="date">'+today+'</div>'+
-    (cards||'<div class="empty">No open follow-ups.</div>')+
+    '<h1>Call Sheet</h1><div class="date">'+today+'</div>'+
+    (rows?
+      '<table><thead><tr><th>DATE</th><th>PHONE</th><th>WHO</th><th>WHY</th></tr></thead><tbody>'+rows+'</tbody></table>':
+      '<p style="color:#888">No open follow-ups.</p>')+
     '</body></html>');
   win.document.close();
   win.focus();
@@ -3335,5 +3297,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v5.12</div>
+<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v5.13</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
