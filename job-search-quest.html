@@ -154,6 +154,11 @@ body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100
 .nc-title{font-size:11px;color:var(--il);font-style:italic}
 /* Reminders */
 .reminder-item{display:flex;align-items:center;gap:10px;padding:7px 10px;background:rgba(42,26,10,.06);border:1px solid rgba(138,104,32,.3);border-radius:3px;margin-bottom:5px}
+.reminder-item.fu-activity{border-left:3px solid #2a6a8a;background:rgba(42,90,138,.06)}
+.reminder-item.fu-prospecting{border-left:3px solid #2a7a2a;background:rgba(42,122,42,.06)}
+.fu-type-badge{font-size:9px;font-family:'Cinzel',serif;letter-spacing:1px;padding:2px 6px;border-radius:2px;flex-shrink:0;text-transform:uppercase;font-weight:700}
+.fu-type-badge.activity{background:rgba(42,90,138,.15);color:#2a6a8a;border:1px solid rgba(42,90,138,.3)}
+.fu-type-badge.prospecting{background:rgba(42,122,42,.15);color:#2a7a2a;border:1px solid rgba(42,122,42,.3)}
 .reminder-item.overdue{border-color:var(--red);background:rgba(139,26,26,.08)}
 .rem-date{font-size:10px;font-family:'Cinzel',serif;color:var(--gd);flex-shrink:0;min-width:55px}
 .rem-date.overdue{color:var(--red)}
@@ -325,7 +330,7 @@ body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100
           <option value="due">Due &amp; Overdue</option>
           <option value="all">All Upcoming</option>
         </select>
-        <button class="btn bsm bgh" data-tip="Add a manual follow-up reminder" onclick="openModal(&#39;addFollowUp&#39;)">+ Add</button>
+        <button class="btn bsm bgh" data-tip="Add a manual follow-up reminder" onclick="openModal(&#39;addFollowUpType&#39;,{})">+ Add</button>
       </div>
     </div>
     <div id="followUpList"><div class="empty" style="padding:12px 0;font-size:13px">No follow-ups due.</div></div>
@@ -1776,6 +1781,34 @@ function quickFollowUp(opts){
   // opts are spread into _ctx by openModal, so saveQuickFollowUp reads from _ctx directly
   openModal('quickFollowUp',opts);
 }
+function saveActivityFollowUp(){
+  var atype=_v('afuType');if(!atype)return;
+  var actDate=_v('afuActivityDate')||new Date().toISOString().split('T')[0];
+  var role=_v('afuRole')||'';
+  var contact=_v('afuContact')||'';
+  var notes=_v('afuNotes')||'';
+  var date=_v('afuDate');if(!date)return;
+  var label=_v('afuLabel')||('Follow up after '+atype+(role?' — '+role:''));
+  if(!S.followUps)S.followUps=[];
+  S.followUps.push({id:uid(),fuType:'activity',activityType:atype,activityDate:actDate,
+    role:role,contactName:contact,notes:notes,label:label,date:date,
+    coId:_ctx.coId||null,coName:_ctx.coName||'',roleId:_ctx.roleId||null,contactId:_ctx.contactId||null});
+  save();render();closeModal();toast('📋 Activity logged + reminder set!');
+}
+function saveProspectingFollowUp(){
+  var contactId=_v('pfuContact');if(!contactId){toast('⚠ Please select a contact');return;}
+  var ct=S.contacts&&S.contacts[contactId];
+  var topic=_v('pfuTopic')||'';
+  var method=_v('pfuMethod')||'LinkedIn';
+  var notes=_v('pfuNotes')||'';
+  var date=_v('pfuDate');if(!date)return;
+  var label=_v('pfuLabel')||(ct?'Prospect '+ct.name+' on upcoming roles':'Prospecting follow-up');
+  if(!S.followUps)S.followUps=[];
+  S.followUps.push({id:uid(),fuType:'prospecting',contactId:contactId,
+    contactName:ct?ct.name:'',coId:ct?ct.companyId||null:null,coName:ct?ct.companyName||'':'',
+    topic:topic,method:method,notes:notes,label:label,date:date});
+  save();render();closeModal();toast('🔍 Prospecting follow-up saved!');
+}
 function saveQuickFollowUp(){
   // openModal spreads opts into _ctx directly, so read from _ctx
   var contactId=_ctx.contactId||null;
@@ -1953,7 +1986,7 @@ function renderReminders(){
   if(!reminders.length){card.style.display='none';return;}
   card.style.display='';
   document.getElementById('remList').innerHTML=reminders.map(r=>`
-    <div class="reminder-item ${r.overdue?'overdue':''}">
+    <div class="reminder-item ${r.overdue?'overdue':''}${r.fuType==='activity'?' fu-activity':''}${r.fuType==='prospecting'?' fu-prospecting':''}">
       <div class="rem-date ${r.overdue?'overdue':''}">${new Date(r.date).toLocaleDateString([],{month:'short',day:'numeric'})}</div>
       <div style="flex:1"><div style="font-size:12px;color:var(--ink)">${escH(r.roleName)}</div>
       <div style="font-size:10px;color:var(--il)">🏢 ${escH(r.coName)}</div></div>
@@ -2026,7 +2059,7 @@ function renderFollowUps(){
     <div class="reminder-item ${r.overdue?'overdue':''}">
       <div class="rem-date ${r.overdue?'overdue':''}">${new Date(r.date).toLocaleDateString([],{month:'short',day:'numeric'})}</div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;color:var(--ink);font-weight:600">${r.label}</div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">${r.fuType==='activity'?'<span class="fu-type-badge activity">📋 Activity</span>':''+r.fuType==='prospecting'?'<span class="fu-type-badge prospecting">🔍 Prospecting</span>':''}<span style="font-size:13px;color:var(--ink);font-weight:600">${r.label}</span></div>${r.activityType?'<div style="font-size:11px;color:var(--gd);font-weight:600">'+r.activityType+(r.activityDate?' on '+new Date(r.activityDate+"T12:00:00").toLocaleDateString([],{month:"short",day:"numeric"}):'')+"</div>":''}${r.role?'<div style="font-size:11px;color:var(--il)">'+escH(r.role)+"</div>":''}${(r.fuType==='prospecting'&&r.contactName)?'<div style="font-size:11px;color:#2a7a2a">👤 '+escH(r.contactName)+(r.coName?' @ '+escH(r.coName):'')+'</div>':''}${(r.fuType==='prospecting'&&r.method)?'<span style="font-size:11px;color:var(--il)">via '+escH(r.method)+'</span>':''}${(r.fuType==='prospecting'&&r.topic)?'<div style="font-size:11px;color:var(--il)">Re: '+escH(r.topic)+'</div>':''}${r.notes?'<div style="font-size:11px;color:var(--il);font-style:italic;margin-top:2px">'+escH(r.notes.slice(0,100))+(r.notes.length>100?"…":"")+"</div>":''}
         ${r.sub?`<div style="font-size:11px;color:var(--il)">${r.sub}</div>`:''}
       </div>
       <div style="display:flex;gap:5px;flex-shrink:0">
@@ -2590,6 +2623,72 @@ function buildModal(type,data){
       +'<div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button>'
       +'<button class="btn" onclick="saveJobDesc()">Save Description</button></div>';}
 
+  if(type==='addFollowUpType'){
+    return '<div class="ct">Add Follow-Up</div>'
+      +'<p class="note" style="margin-bottom:12px">What kind of follow-up?</p>'
+      +'<div style="display:flex;flex-direction:column;gap:10px">'
+      +'<button class="btn bgh" onclick="closeModal();openModal(\'activityFollowUp\',{})" style="padding:14px;text-align:left">'
+      +'<div style="font-size:13px;font-weight:700;margin-bottom:4px">📋 Activity Follow-Up</div>'
+      +'<div style="font-size:11px;color:var(--il);font-weight:400">Log something that already happened (applied, interviewed, emailed) and set a next step.</div>'
+      +'</button>'
+      +'<button class="btn bgh" onclick="closeModal();openModal(\'prospectingFollowUp\',{})" style="padding:14px;text-align:left">'
+      +'<div style="font-size:13px;font-weight:700;margin-bottom:4px">🔍 Prospecting Follow-Up</div>'
+      +'<div style="font-size:11px;color:var(--il);font-weight:400">Outreach to an NPC asking about upcoming roles. Linked to a specific contact.</div>'
+      +'</button>'
+      +'<button class="btn bgh" onclick="closeModal();quickFollowUp({})" style="padding:14px;text-align:left">'
+      +'<div style="font-size:13px;font-weight:700;margin-bottom:4px">⏰ General Reminder</div>'
+      +'<div style="font-size:11px;color:var(--il);font-weight:400">A simple date-based reminder.</div>'
+      +'</button></div>'
+      +'<div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button></div>';}
+
+  if(type==='activityFollowUp'){
+    var d=new Date();d.setDate(d.getDate()+7);
+    var defDate=d.toISOString().split('T')[0];
+    return '<div class="ct">📋 Activity Follow-Up</div>'
+      +'<p class="note" style="margin-bottom:8px">Log what happened and set a reminder for your next step.</p>'
+      +'<label class="ilbl">Activity Type *</label>'
+      +'<select class="ti" id="afuType"><option value="Applied">Applied</option><option value="Phone Screen">Phone Screen</option><option value="Interview">Interview</option><option value="Emailed">Emailed</option><option value="Called">Called</option><option value="Offer Received">Offer Received</option><option value="Other">Other</option></select>'
+      +'<label class="ilbl">Date of Activity *</label>'
+      +'<input class="ti" id="afuActivityDate" type="date" value="'+new Date().toISOString().split('T')[0]+'">'
+      +'<label class="ilbl">Role / Company</label>'
+      +'<input class="ti" id="afuRole" placeholder="e.g. Director of Sales @ Wesco" value="'+escH((data.roleName||'')+(data.coName?' @ '+data.coName:''))+'">'
+      +'<label class="ilbl">Contact (if applicable)</label>'
+      +'<input class="ti" id="afuContact" placeholder="Name, title" value="'+escH(data.contactName||'')+'">'
+      +'<label class="ilbl">Notes — what happened, who was involved, key topics, next steps mentioned</label>'
+      +'<textarea class="ta" id="afuNotes" placeholder="Be specific. This is your memory of what happened." style="min-height:80px"></textarea>'
+      +'<label class="ilbl">Follow-Up Reminder Date *</label>'
+      +'<input class="ti" id="afuDate" type="date" value="'+defDate+'">'
+      +'<label class="ilbl">Next Step Label</label>'
+      +'<input class="ti" id="afuLabel" placeholder="e.g. Send thank you, Check in on decision">'
+      +'<div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button>'
+      +'<button class="btn" onclick="saveActivityFollowUp()">Save</button></div>';}
+
+  if(type==='prospectingFollowUp'){
+    var d2=new Date();d2.setDate(d2.getDate()+7);
+    var defDate2=d2.toISOString().split('T')[0];
+    var npcOpts=Object.values(S.contacts||{}).map(function(c){
+      return '<option value="'+c.id+'"'+(data.contactId===c.id?' selected':'')+'>'
+        +escH(c.name)+(c.companyName?' @ '+escH(c.companyName):'')
+        +(c.title?' — '+escH(c.title):'')
+        +'</option>';
+    }).join('');
+    return '<div class="ct">🔍 Prospecting Follow-Up</div>'
+      +'<p class="note" style="margin-bottom:8px">Reach out to ask about upcoming roles.</p>'
+      +'<label class="ilbl">Contact *</label>'
+      +'<select class="ti" id="pfuContact"><option value="">Select a contact...</option>'+npcOpts+'</select>'
+      +'<label class="ilbl">What are you asking about?</label>'
+      +'<input class="ti" id="pfuTopic" placeholder="e.g. Director-level openings, regional sales roles">'
+      +'<label class="ilbl">Outreach Method</label>'
+      +'<select class="ti" id="pfuMethod"><option>LinkedIn</option><option>Email</option><option>Phone</option><option>Text</option><option>In Person</option></select>'
+      +'<label class="ilbl">Notes</label>'
+      +'<textarea class="ta" id="pfuNotes" placeholder="Why this person? Prior relationship? What you know about their hiring plans..." style="min-height:70px"></textarea>'
+      +'<label class="ilbl">Follow-Up Date *</label>'
+      +'<input class="ti" id="pfuDate" type="date" value="'+defDate2+'">'
+      +'<label class="ilbl">Reminder Label</label>'
+      +'<input class="ti" id="pfuLabel" placeholder="e.g. Follow up with Keith on director roles">'
+      +'<div class="mf"><button class="btn bgh" onclick="closeModal()">Cancel</button>'
+      +'<button class="btn" onclick="saveProspectingFollowUp()">Save</button></div>';}
+
   if(type==='quickFollowUp'){
     var d=new Date();d.setDate(d.getDate()+3);
     var defDate=d.toISOString().split('T')[0];
@@ -3129,5 +3228,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v5.8</div>
+<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v5.9</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
