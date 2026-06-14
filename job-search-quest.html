@@ -2337,7 +2337,7 @@ function openOpportunities(){
         status:r.status||'active',location:r.location||'',salary:r.salary||'',
         url:r.url||'',description:r.description||'',followUpDate:r.followUpDate||'',
         contacts:contacts,dmgDealt:r.dmgDealt||0,maxHp:r.maxHp||100,
-        createdDate:r.createdDate||''});
+        createdDate:r.createdDate||(function(){try{var ts=parseInt(r.id.slice(0,8),36);return ts>1e12?new Date(ts).toISOString().split('T')[0]:'';}catch(e){return '';}})()});
     });
   });
   window._oppData=roles;
