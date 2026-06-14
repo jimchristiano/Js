@@ -326,6 +326,7 @@ body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100
         <th onclick="oppSort('role')">ROLE</th>
         <th onclick="oppSort('location')">LOCATION</th>
         <th onclick="oppSort('contacts')">CONTACTS</th>
+        <th onclick="oppSort('createdDate')">CREATED</th>
         <th onclick="oppSort('followUpDate')">FOLLOW-UP</th>
         <th onclick="oppSort('salary')">SALARY</th>
         <th onclick="oppSort('dmgDealt')">PROGRESS</th>
@@ -2335,7 +2336,8 @@ function openOpportunities(){
       roles.push({id:r.id,company:co.name,coId:co.id,role:r.name,
         status:r.status||'active',location:r.location||'',salary:r.salary||'',
         url:r.url||'',description:r.description||'',followUpDate:r.followUpDate||'',
-        contacts:contacts,dmgDealt:r.dmgDealt||0,maxHp:r.maxHp||100});
+        contacts:contacts,dmgDealt:r.dmgDealt||0,maxHp:r.maxHp||100,
+        createdDate:r.createdDate||''});
     });
   });
   window._oppData=roles;
@@ -2411,11 +2413,12 @@ function oppApply(){
       '<td><div class="opp-role">'+escH(r.role)+'</div>'+(r.description?'<div class="opp-desc">'+escH(r.description)+'</div>':'')+'</td>'+
       '<td><div class="opp-sub">'+escH(r.location)+'</div></td>'+
       '<td><div class="opp-sub">'+escH(r.contacts)+'</div></td>'+
+      '<td><div class="opp-sub">'+r.createdDate+'</div></td>'+
       '<td><div class="opp-sub">'+r.followUpDate+'</div></td>'+
       '<td><div class="opp-sub">'+escH(r.salary)+'</div></td>'+
       '<td>'+prog+'</td>'+
       '</tr>';
-  }).join(''):'<tr><td colspan="8" style="text-align:center;padding:40px;color:#888">No roles match your filters.</td></tr>';
+  }).join(''):'<tr><td colspan="9" style="text-align:center;padding:40px;color:#888">No roles match your filters.</td></tr>';
 }
 
 function printCallSheet(){
@@ -3463,5 +3466,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v5.14</div>
+<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v5.15</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
