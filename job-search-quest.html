@@ -313,6 +313,7 @@ body{background:linear-gradient(135deg,var(--bg) 0%,#0f0a03 100%);min-height:100
     <div><label>Status</label><select id="oppFS" onchange="oppApply()"><option value="">All</option><option value="active">Active</option><option value="applied">Applied</option><option value="interview">Interview</option><option value="offer">Offer</option><option value="rejected">Rejected</option></select></div>
     <div><label>Company</label><select id="oppFC" onchange="oppApply()"><option value="">All Companies</option></select></div>
     <div><label>Location</label><select id="oppFL" onchange="oppApply()"><option value="">All Locations</option></select></div>
+    <div><label>State</label><select id="oppFST" onchange="oppApply()"><option value="">All States</option></select></div>
     <div><label>Search</label><input id="oppFQ" placeholder="role, company, notes..." oninput="oppApply()" style="width:150px"></div>
     <span id="oppCount">0 roles</span>
     <button onclick="oppClear()">× Clear</button>
@@ -2337,7 +2338,16 @@ function openOpportunities(){
         status:r.status||'active',location:r.location||'',salary:r.salary||'',
         url:r.url||'',description:r.description||'',followUpDate:r.followUpDate||'',
         contacts:contacts,dmgDealt:r.dmgDealt||0,maxHp:r.maxHp||100,
-        createdDate:r.createdDate||(function(){try{var ts=parseInt(r.id.slice(0,8),36);return ts>1e12?new Date(ts).toISOString().split('T')[0]:'';}catch(e){return '';}})()});
+        createdDate:r.createdDate||(function(){try{var ts=parseInt(r.id.slice(0,8),36);return ts>1e12?new Date(ts).toISOString().split('T')[0]:'';}catch(e){return '';}})(),
+        state:(function(){
+          var loc=r.location||'';
+          // Try 'City, ST' or 'Remote, ST' or 'Remote - ST'
+          var m=loc.match(/[,\-]\s*([A-Za-z]{2})\s*$/);
+          if(m)return m[1].toUpperCase();
+          // Try bare state at end like 'Remote TX'
+          var m2=loc.match(/\b([A-Z]{2})\s*$/);
+          return m2?m2[1]:'';
+        })()});
     });
   });
   window._oppData=roles;
@@ -2353,6 +2363,11 @@ function openOpportunities(){
   var allLocs=[...new Set(roles.map(function(r){return r.location;}).filter(Boolean))].sort();
   locSel.innerHTML='<option value="">All Locations</option>'+
     allLocs.map(function(l){return '<option>'+escH(l)+'</option>';}).join('');
+  // Populate state dropdown
+  var stSel=document.getElementById('oppFST');
+  var allStates=[...new Set(roles.map(function(r){return r.state;}).filter(Boolean))].sort();
+  stSel.innerHTML='<option value="">All States</option>'+
+    allStates.map(function(s){return '<option>'+escH(s)+'</option>';}).join('');
   // Reset filters
   document.getElementById('oppFS').value='';
   coSel.value='';
@@ -2375,7 +2390,7 @@ function oppSort(col){
   oppApply();
 }
 function oppClear(){
-  ['oppFS','oppFC','oppFL'].forEach(function(id){document.getElementById(id).value='';});
+  ['oppFS','oppFC','oppFL','oppFST'].forEach(function(id){document.getElementById(id).value='';});
   document.getElementById('oppFQ').value='';
   oppApply();
 }
@@ -2384,11 +2399,13 @@ function oppApply(){
   var st=document.getElementById('oppFS').value;
   var co=document.getElementById('oppFC').value;
   var loc=document.getElementById('oppFL').value;
+  var state=document.getElementById('oppFST')?document.getElementById('oppFST').value:'';
   var q=document.getElementById('oppFQ').value.toLowerCase();
   var f=roles.filter(function(r){
     if(st&&(r.status||'active')!==st)return false;
     if(co&&r.company!==co)return false;
     if(loc&&r.location!==loc)return false;
+    if(state&&r.state!==state)return false;
     if(q&&!(r.role.toLowerCase().includes(q)||r.company.toLowerCase().includes(q)||
       r.description.toLowerCase().includes(q)||(r.contacts||'').toLowerCase().includes(q)))return false;
     return true;
