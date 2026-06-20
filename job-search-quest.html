@@ -966,18 +966,39 @@ const MSFT={
         merged.companies=remote.companies;
         merged.contacts=remote.contacts;
       } else {
-        // Merge companies
+        // Merge companies - use statusModified timestamp to decide winner, not game progress
         new Set([...Object.keys(S.companies||{}),...Object.keys(remote.companies||{})]).forEach(function(cid){
           const lc=S.companies&&S.companies[cid],rc=remote.companies&&remote.companies[cid];
           if(lc&&rc){
             const base=(lc.dmgDealt||0)>=(rc.dmgDealt||0)?lc:rc;
             new Set([...Object.keys(lc.roles||{}),...Object.keys(rc.roles||{})]).forEach(function(rid){
               const lr=lc.roles&&lc.roles[rid],rr=rc.roles&&rc.roles[rid];
-              base.roles=base.roles||{};base.roles[rid]=(lr&&rr)?((lr.dmgDealt||0)>=(rr.dmgDealt||0)?lr:rr):(lr||rr);
+              base.roles=base.roles||{};
+              if(lr&&rr){
+                // Pick the role with the more recent statusModified timestamp
+                // Fall back to dmgDealt only if neither has a timestamp
+                var lrTime=lr.statusModified?new Date(lr.statusModified).getTime():0;
+                var rrTime=rr.statusModified?new Date(rr.statusModified).getTime():0;
+                var winner;
+                if(lrTime||rrTime){
+                  winner=lrTime>=rrTime?lr:rr;
+                }else{
+                  winner=(lr.dmgDealt||0)>=(rr.dmgDealt||0)?lr:rr;
+                }
+                // Merge: take the winner's status/statusModified, but keep richer data (actLog, resumes) from whichever has more
+                var merged_role=Object.assign({},lr.dmgDealt>=rr.dmgDealt?lr:rr);
+                merged_role.status=winner.status;
+                merged_role.statusModified=winner.statusModified;
+                merged_role.followUpDate=winner.followUpDate||merged_role.followUpDate;
+                base.roles[rid]=merged_role;
+              }else{
+                base.roles[rid]=lr||rr;
+              }
             });
             merged.companies[cid]=base;
           } else merged.companies[cid]=lc||rc;
         });
+
         // Merge contacts
         new Set([...Object.keys(S.contacts||{}),...Object.keys(remote.contacts||{})]).forEach(function(cid){
           const lc=S.contacts&&S.contacts[cid],rc=remote.contacts&&remote.contacts[cid];
@@ -1245,7 +1266,7 @@ function logActivity(quest,coId,roleId,contactId,resumeInfo,notes,evt){
   if(role){
     role.actLog=role.actLog||[];role.actLog.unshift(entry);if(role.actLog.length>50)role.actLog.pop();
     if(resumeInfo?.name){role.resumes=role.resumes||[];if(!role.resumes.find(r=>r.name===resumeInfo.name))role.resumes.push({name:resumeInfo.name,data:resumeInfo.data});}
-    if(quest.setStatus)role.status=quest.setStatus;
+    if(quest.setStatus){role.status=quest.setStatus;role.statusModified=new Date().toISOString();}
     // damage with weapon multiplier
     if(quest.dmg>0)role.dmgDealt=(role.dmgDealt||0)+Math.round(quest.dmg*dmgMult);
   }
@@ -1315,7 +1336,7 @@ function saveEditCompany(coId){
 }
 function addCompany(){const name=_v('coName'),url=_v('coUrl');if(!name)return;const id=uid();S.companies[id]={id,name,careersUrl:url,dmgDealt:0,maxHp:CO_MAX,roles:{},actLog:[]};save();render();closeModal();toast(`🏢 ${name} added!`);}
 async function addRole(coId){const name=_v('rName'),city=_v('rCity'),state=_v('rState'),url=_v('rUrl'),salary=_v('rSalary'),deadline=_v('rDeadline'),followUp=_v('rFollowUp');if(!name)return;const id=uid();const role={id,name,location:`${city}${city&&state?', ':''}${state}`,url,salary,deadline,followUpDate:followUp,status:'active',dmgDealt:0,maxHp:ROLE_MAX,description:'',importStatus:'',resumes:[],actLog:[]};S.companies[coId].roles[id]=role;save();render();closeModal();toast(`🎯 ${name} added!`);if(url)importRole(coId,id,url);}
-function updateRole(coId,roleId){const role=S.companies[coId]?.roles[roleId];if(!role)return;role.name=_v('rName')||role.name;const c=_v('rCity'),st=_v('rState');role.location=`${c}${c&&st?', ':''}${st}`;role.url=_v('rUrl');role.salary=_v('rSalary');role.deadline=_v('rDeadline');role.followUpDate=_v('rFollowUp');role.status=_v('rStatus')||role.status;save();render();closeModal();toast(`✏️ Updated!`);}
+function updateRole(coId,roleId){const role=S.companies[coId]?.roles[roleId];if(!role)return;role.name=_v('rName')||role.name;const c=_v('rCity'),st=_v('rState');role.location=`${c}${c&&st?', ':''}${st}`;role.url=_v('rUrl');role.salary=_v('rSalary');role.deadline=_v('rDeadline');role.followUpDate=_v('rFollowUp');role.status=_v('rStatus')||role.status;role.statusModified=new Date().toISOString();save();render();closeModal();toast(`✏️ Updated!`);}
 function savePhoneOutreach(contactId,roleId,coId,evt){
   const notes=_fv('poNotes').trim();
   const leftVM=document.getElementById('poVM')?.checked||false;
@@ -3483,5 +3504,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v5.15</div>
+<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v5.16</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
