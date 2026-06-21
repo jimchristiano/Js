@@ -1813,6 +1813,14 @@ function updateCopyRoles(coId){
   const roles=coId&&S.companies[coId]?Object.values(S.companies[coId].roles||{}):[];
   sel.innerHTML='<option value="">— None —</option>'+roles.map(function(r){return '<option value="'+r.id+'">'+escH(r.name)+'</option>';}).join('');
 }
+function updateCopyContacts(coId){
+  const sel=document.getElementById('copyContactId');if(!sel)return;
+  const allCts=Object.values(S.contacts||{}).sort(function(a,b){return a.name.localeCompare(b.name);});
+  const cts=coId?allCts.filter(function(c){return c.companyId===coId;}):allCts;
+  sel.innerHTML='<option value="">— None —</option>'+cts.map(function(c){
+    return '<option value="'+c.id+'">'+escH(c.name)+(c.companyName?' @ '+escH(c.companyName):'')+'</option>';
+  }).join('');
+}
 function updateCopyPreview(){
   const t=getTemplates().find(function(x){return x.id===_ctx.tplId;});if(!t)return;
   const coId=_v('copyCoId')||'';const roleId=_v('copyRoleId')||'';const contactId=_v('copyContactId')||'';
@@ -3152,17 +3160,14 @@ function buildModal(type,data){
     _ctx.tplId=data.tplId;
     var t=getTemplates().find(function(x){return x.id===data.tplId;});if(!t)return '';
     var allCos2=Object.values(S.companies).sort(function(a,b){return a.name.localeCompare(b.name);});
-    var allCts2=Object.values(S.contacts).sort(function(a,b){return a.name.localeCompare(b.name);});
     return '<div class="ct">&#128203; Copy: '+escH(t.name)+'</div>'
-      +'<p class="note" style="margin-bottom:8px">Optionally select a person and role to auto-fill placeholders: [Name], [Role], [Company], [City], [region].</p>'
-      +'<label class="ilbl">Person (optional)</label>'
-      +'<select class="sel-input" id="copyContactId" onchange="updateCopyPreview()"><option value="">— None —</option>'
-      +allCts2.map(function(c){return '<option value="'+c.id+'">'+escH(c.name)+(c.companyName?' @ '+escH(c.companyName):'')+' </option>';}).join('')
-      +'</select>'
+      +'<p class="note" style="margin-bottom:8px">Pick a company to filter the person and role lists. Auto-fills [Name], [Role], [Company], [City], [region].</p>'
       +'<label class="ilbl">Company (optional)</label>'
-      +'<select class="sel-input" id="copyCoId" onchange="updateCopyRoles(this.value);updateCopyPreview()"><option value="">— None —</option>'
+      +'<select class="sel-input" id="copyCoId" onchange="updateCopyContacts(this.value);updateCopyRoles(this.value);updateCopyPreview()"><option value="">— None —</option>'
       +allCos2.map(function(c){return '<option value="'+c.id+'">'+escH(c.name)+'</option>';}).join('')
       +'</select>'
+      +'<label class="ilbl">Person (optional)</label>'
+      +'<select class="sel-input" id="copyContactId" onchange="updateCopyPreview()"><option value="">— None —</option></select>'
       +'<label class="ilbl">Role (optional)</label>'
       +'<select class="sel-input" id="copyRoleId" onchange="updateCopyPreview()"><option value="">— None —</option></select>'
       +'<label class="ilbl">Preview</label>'
@@ -3504,5 +3509,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v5.16</div>
+<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v5.17</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
