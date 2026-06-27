@@ -1562,6 +1562,12 @@ function importPotentialRoles(roles){
       r.id=r.id||uid();
       r.foundDate=r.foundDate||new Date().toISOString();
       if(!r.source)r.source='import';
+      // Auto-resolve coId by company name if missing
+      if(!r.coId&&(r.companyName||r.coName)){
+        var coNameM=(r.companyName||r.coName||'').toLowerCase();
+        var coMatch=Object.values(S.companies||{}).find(function(c){return c.name.toLowerCase()===coNameM;});
+        if(coMatch)r.coId=coMatch.id;
+      }
       S.potentialRoles.push(r);
       if(url)existUrls.add(url);
       if(key)existKeys.add(key);
@@ -3509,5 +3515,5 @@ if(MSFT.enabled){
 </script>
 
 
-<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v5.17</div>
+<div style="text-align:center;padding:10px 0 4px;font-family:'Cinzel',serif;font-size:11px;color:#c89020;opacity:.9;letter-spacing:2px">v5.18</div>
 </body><div id="retailmenot-extension" style="all: initial !important;"><template shadowrootmode="closed"><iframe data-rmn-node-id="app" allow="clipboard-write" loading="eager" popover="manual" src="https://dealfinder.retailmenot.com/experience/app" style="margin: 0px; inset: auto; padding: 0px; background-color: transparent; height: 0px; visibility: hidden; width: 390px; border: 0px; overflow: hidden; position: fixed; z-index: 2147483647;"></iframe></template></div></html>
